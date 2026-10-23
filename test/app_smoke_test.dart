@@ -54,21 +54,21 @@ void main() {
     await tester.pumpAndSettle(); // transition must complete
 
     expect(find.byType(OwnerDashboardScreen), findsOneWidget);
-    expect(find.text('Owner panel'), findsOneWidget);
+    expect(find.byType(NavigationBar), findsOneWidget);
   });
-
   // ─── Back to login ────────────────────────────────────────────────
-  testWidgets('placeholder dashboard "Back to login" returns to login',
-      (tester) async {
+  testWidgets('dashboard "Back to login" returns to login', (tester) async {
     await _bootToLogin(tester);
 
     await tester.tap(find.widgetWithText(ActionChip, 'Owner'));
     await tester.pumpAndSettle();
-    expect(find.text('Owner panel'), findsOneWidget);
-    // Sanity: splash is gone.
+
+    // Assert on structural widgets — not on specific body text — so this
+    // test survives every Phase 5–9 tab rewrite without breaking.
+    expect(find.byType(OwnerDashboardScreen), findsOneWidget);
+    expect(find.byType(NavigationBar), findsOneWidget);
     expect(find.byType(SplashScreen), findsNothing);
 
-    // Now the tooltip is at its final on-screen position.
     await tester.tap(find.byTooltip('Back to login'));
     await tester.pumpAndSettle();
 
