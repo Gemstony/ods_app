@@ -9,35 +9,24 @@ import 'package:ods_app/features/owner/presentation/screens/owner_dashboard_scre
 
 /// Widget tests for routing + splash + login.
 ///
-/// A note on `pumpAndSettle`:
-///   Route transitions animate over several hundred milliseconds. A single
-///   `pump()` only advances one frame, so widgets mid-transition are found
-///   by finders but their rendered position is still the *starting* offset
-///   (often off-screen). Tapping them silently misses.
-///   `pumpAndSettle()` advances until there are no scheduled frames, which
-///   means transitions complete — after which finders, positions, and tap
-///   targets all agree.
-///
-///   The one place we intentionally do NOT use `pumpAndSettle()` is right
-///   after `pumpWidget()`, because the splash has a 1500ms `Timer`, and
-///   `pumpAndSettle()` would advance the clock past it and skip the splash
-///   state we want to assert.
+/// Notes:
+///   • `pumpAndSettle()` after navigation — route transitions animate over
+///     ~300ms; a single `pump()` leaves widgets mid-transition (and, in
+///     particular, at their *starting* on-screen offset).
+///   • `ensureVisible()` before tapping any widget inside the login's
+///     `SingleChildScrollView` — the dev panel is below the fold on an
+///     800×600 test viewport, so tap-by-center misses silently.
 void main() {
   // ─── Splash ────────────────────────────────────────────────────────
   testWidgets('splash renders brand and auto-routes to login', (tester) async {
     AppConfig.initialize();
     await tester.pumpWidget(const OdsApp());
-    await tester.pump(); // one frame is enough to lay out splash
+    await tester.pump();
 
-    // Splash is showing — its timer hasn't fired yet.
     expect(find.byType(SplashScreen), findsOneWidget);
     expect(find.text('Zero Distance Services'), findsOneWidget);
 
-    // Advance past the 1500ms redirect timer.
     await tester.pump(const Duration(milliseconds: 1600));
-
-    // Now wait for the login route's transition to fully complete so
-    // SplashScreen has been removed from the tree.
     await tester.pumpAndSettle();
 
     expect(find.byType(LoginScreen), findsOneWidget);
@@ -50,23 +39,18 @@ void main() {
       (tester) async {
     await _bootToLogin(tester);
 
-    await tester.tap(find.widgetWithText(ActionChip, 'Owner'));
-    await tester.pumpAndSettle(); // transition must complete
+    await _tapRoleChip(tester, 'Owner');
 
     expect(find.byType(OwnerDashboardScreen), findsOneWidget);
     expect(find.byType(NavigationBar), findsOneWidget);
   });
+
   // ─── Back to login ────────────────────────────────────────────────
   testWidgets('dashboard "Back to login" returns to login', (tester) async {
     await _bootToLogin(tester);
 
-    await tester.tap(find.widgetWithText(ActionChip, 'Owner'));
-    await tester.pumpAndSettle();
-
-    // Assert on structural widgets — not on specific body text — so this
-    // test survives every Phase 5–9 tab rewrite without breaking.
+    await _tapRoleChip(tester, 'Owner');
     expect(find.byType(OwnerDashboardScreen), findsOneWidget);
-    expect(find.byType(NavigationBar), findsOneWidget);
     expect(find.byType(SplashScreen), findsNothing);
 
     await tester.tap(find.byTooltip('Back to login'));
@@ -97,14 +81,31 @@ void main() {
   });
 }
 
-/// Shared helper: boots the app, waits through the splash timer, and
-/// settles on the login screen. Every non-splash test starts here.
+// ─── Shared helpers ─────────────────────────────────────────────────
+
 Future<void> _bootToLogin(WidgetTester tester) async {
   AppConfig.initialize();
   await tester.pumpWidget(const OdsApp());
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 1600));
   await tester.pumpAndSettle();
-  // Precondition — every downstream test assumes login is showing.
   expect(find.byType(LoginScreen), findsOneWidget);
+}
+
+/// Scrolls the given role chip into view before tapping it.
+///
+/// The dev section (session chip + dev-sign-in button + role chips) sits
+/// below the fold on an 800×600 test viewport. `tester.tap()` by itself
+/// computes the widget's center and misses if it's off-screen — this
+/// helper makes the intent explicit and reliable.
+Future<void> _tapRoleChip(WidgetTester tester, String label) async {
+  final chip = find.widgetWithText(ActionChip, label);
+  expect(chip, findsOneWidget,
+      reason: 'Dev role chip "$label" not found on login screen');
+
+  await tester.ensureVisible(chip);
+  await tester.pumpAndSettle();
+
+  await tester.tap(chip);
+  await tester.pumpAndSettle();
 }

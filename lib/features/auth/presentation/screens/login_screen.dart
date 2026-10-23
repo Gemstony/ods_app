@@ -1,21 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/config/app_config.dart';
+import '../../../../core/routing/role_guard.dart';
 import '../../../../core/routing/route_names.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../data/repositories/health_repository.dart';
+import '../../../../shared/providers/auth_provider.dart';
 import '../../../../widgets/widgets.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _healthRepo = HealthRepository();
@@ -30,7 +33,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _onSignIn() {
-    _showSnack('Authentication is wired in Phase 3.');
+    _showSnack('Real sign-in is wired in Phase 3.');
   }
 
   Future<void> _onTestApi() async {
@@ -45,6 +48,24 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
       onFailure: (failure) => _showSnack(failure.message, isError: true),
     );
+  }
+
+  Future<void> _devSignIn(String role) async {
+    final normalized = role.toLowerCase();
+    await ref.read(sessionProvider.notifier).signIn(
+          userId: 'dev-$normalized-001',
+          role: normalized,
+          accessToken: 'dev-token-${DateTime.now().millisecondsSinceEpoch}',
+          displayName: 'Dev ${role[0]}${role.substring(1).toLowerCase()}',
+        );
+    if (!mounted) return;
+    context.go(RoleGuard.homeForRole(normalized));
+  }
+
+  Future<void> _devSignOut() async {
+    await ref.read(sessionProvider.notifier).signOut();
+    if (!mounted) return;
+    _showSnack('Session cleared.');
   }
 
   void _showSnack(String message, {bool isError = false}) {
@@ -63,6 +84,9 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final sessionAsync = ref.watch(sessionProvider);
+    final session = sessionAsync.valueOrNull;
+    final isSignedIn = session != null;
 
     return Scaffold(
       body: SafeArea(
@@ -74,11 +98,11 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: AppSpacing.xl),
 
               // ─── Brand ───────────────────────────────────────────
-              const Center(
+              Center(
                 child: CircleAvatar(
                   radius: 44,
                   backgroundColor: AppColors.primary,
-                  child: Icon(
+                  child: const Icon(
                     Icons.local_shipping_rounded,
                     size: 44,
                     color: Colors.white,
@@ -146,6 +170,49 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.xs),
+
+                // Session status
+                sessionAsync.when(
+                  loading: () => Text(
+                    'Loading session…',
+                    textAlign: TextAlign.center,
+                    style: text.bodySmall?.copyWith(
+                      color: AppColors.onSurfaceSubtle,
+                    ),
+                  ),
+                  error: (e, _) => Text(
+                    'Session error: $e',
+                    textAlign: TextAlign.center,
+                    style: text.bodySmall?.copyWith(color: AppColors.error),
+                  ),
+                  data: (s) => StatusChip(
+                    label: s == null
+                        ? 'Not signed in'
+                        : 'Signed in as ${s.role}',
+                    type: s == null ? StatusType.neutral : StatusType.success,
+                    icon: s == null ? Icons.lock_outline : Icons.check,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+
+                if (!isSignedIn)
+                  AppButton(
+                    label: 'Dev sign in as Owner',
+                    onPressed: () => _devSignIn('Owner'),
+                    variant: AppButtonVariant.secondary,
+                    icon: Icons.login_rounded,
+                  )
+                else
+                  AppButton(
+                    label: 'Clear session',
+                    onPressed: _devSignOut,
+                    variant: AppButtonVariant.secondary,
+                    icon: Icons.logout_rounded,
+                  ),
+
+                const SizedBox(height: AppSpacing.sm),
+
+                // Role-jump chips (navigate without touching session)
                 Wrap(
                   alignment: WrapAlignment.center,
                   spacing: AppSpacing.xs,
