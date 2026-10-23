@@ -6,13 +6,8 @@ import '../../../../core/routing/route_names.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../data/repositories/health_repository.dart';
+import '../../../../widgets/widgets.dart';
 
-/// Sign-in screen.
-///
-/// The email/password fields and "Sign in" button are placeholders — real
-/// auth is wired in Phase 3. Until then, dev-only role-jump chips (visible
-/// only when [AppConfig.isDev]) let us navigate into each dashboard for
-/// routing verification.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -48,10 +43,7 @@ class _LoginScreenState extends State<LoginScreen> {
       onSuccess: (data) => _showSnack(
         'API OK · env=${data['env']} · db=${data['database']}',
       ),
-      onFailure: (failure) => _showSnack(
-        failure.message,
-        isError: true,
-      ),
+      onFailure: (failure) => _showSnack(failure.message, isError: true),
     );
   }
 
@@ -81,12 +73,12 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               const SizedBox(height: AppSpacing.xl),
 
-              // ─── Brand ────────────────────────────────────────────
-              Center(
+              // ─── Brand ───────────────────────────────────────────
+              const Center(
                 child: CircleAvatar(
                   radius: 44,
                   backgroundColor: AppColors.primary,
-                  child: const Icon(
+                  child: Icon(
                     Icons.local_shipping_rounded,
                     size: 44,
                     color: Colors.white,
@@ -110,30 +102,38 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const SizedBox(height: AppSpacing.xl),
 
-              // ─── Form ─────────────────────────────────────────────
-              TextField(
+              // ─── Form ────────────────────────────────────────────
+              AppTextField(
                 controller: _emailController,
+                label: 'Email',
+                hint: 'you@example.com',
                 keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(labelText: 'Email'),
+                textInputAction: TextInputAction.next,
+                prefixIcon: Icons.mail_outline_rounded,
               ),
               const SizedBox(height: AppSpacing.sm),
-              TextField(
+              AppTextField(
                 controller: _passwordController,
+                label: 'Password',
                 obscureText: true,
-                decoration: const InputDecoration(labelText: 'Password'),
+                textInputAction: TextInputAction.done,
+                prefixIcon: Icons.lock_outline_rounded,
+                onFieldSubmitted: (_) => _onSignIn(),
               ),
               const SizedBox(height: AppSpacing.md),
-              ElevatedButton(
+              AppButton(
+                label: 'Sign in',
                 onPressed: _onSignIn,
-                child: const Text('Sign in'),
               ),
               const SizedBox(height: AppSpacing.xs),
-              TextButton(
+              AppButton(
+                label: 'Forgot password?',
                 onPressed: _onSignIn,
-                child: const Text('Forgot password?'),
+                variant: AppButtonVariant.text,
+                isFullWidth: false,
               ),
 
-              // ─── Dev-only helpers ─────────────────────────────────
+              // ─── Dev-only helpers ────────────────────────────────
               if (AppConfig.isDev) ...[
                 const SizedBox(height: AppSpacing.xl),
                 const Divider(),
@@ -174,16 +174,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
                 const SizedBox(height: AppSpacing.sm),
-                TextButton.icon(
+                AppButton(
+                  label: 'Test API connection',
                   onPressed: _checkingApi ? null : _onTestApi,
-                  icon: _checkingApi
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.wifi_tethering),
-                  label: const Text('Test API connection'),
+                  variant: AppButtonVariant.text,
+                  icon: Icons.wifi_tethering,
+                  isLoading: _checkingApi,
+                  isFullWidth: false,
                 ),
               ],
 
