@@ -12,21 +12,17 @@ import '../../features/rider/presentation/screens/rider_dashboard_screen.dart';
 import 'role_guard.dart';
 import 'route_names.dart';
 
-/// Builds the app's [GoRouter] instance.
-///
-/// While [enforceAuth] is `false` (Sub-phases 1.5–1.7 and 1.8 partially),
-/// redirects are bypassed so all role dashboards are reachable for testing.
-/// Phase 3 flips this to `true` once real auth is wired.
 class AppRouter {
   AppRouter._();
 
-  /// Auth gate switch. `false` during early development, `true` from Phase 3.
-  static const bool enforceAuth = false;
+  /// Auth gate. `true` from Phase 3.4 onward.
+  static const bool enforceAuth = true;
 
-  static GoRouter build() {
+  static GoRouter build({Listenable? refreshListenable}) {
     return GoRouter(
       initialLocation: RouteNames.splash,
       debugLogDiagnostics: AppConfig.isDev,
+      refreshListenable: refreshListenable,
       redirect: _redirect,
       routes: [
         GoRoute(
@@ -73,29 +69,44 @@ class AppRouter {
     );
   }
 
-  /// The single place where auth + role decide where a user lands.
+  /// Pure redirect logic — exposed for unit tests.
   ///
-  /// Behaviour today ([enforceAuth] = false): no redirects at all.
-  /// Behaviour once Phase 3 enables [enforceAuth]:
-  ///   - signed out      → forced to /login (unless already on /login or /)
-  ///   - signed in       → auth routes redirect to home-for-role
-  ///   - signed in       → any other route: allowed (per-screen role checks
-  ///                       are added in Phase 3 via route guards, not here)
-  static String? _redirect(BuildContext context, GoRouterState state) {
+  /// Rules (top to bottom):
+  ///   1. Auth disabled (dev-only escape hatch) → no redirects.
+  ///   2. Still restoring AND not on splash → force to splash.
+  ///   3. On splash → no redirect (splash controls its own navigation).
+  ///   4. Signed in AND on login → home for role.
+  ///   5. Signed in elsewhere → allow.
+  ///   6. Signed out AND not on login → login.
+  ///   7. Signed out on login → allow.
+  static String? resolveRedirect({
+    required String location,
+    required bool isRestoring,
+    required String? role,
+  }) {
     if (!enforceAuth) return null;
 
-    final role = RoleGuard.currentRole();
-    final location = state.matchedLocation;
-    final isAuthRoute = location == RouteNames.login || location == RouteNames.splash;
+    final isOnSplash = location == RouteNames.splash;
+    final isOnLogin = location == RouteNames.login;
 
-    if (role == null) {
-      return isAuthRoute ? null : RouteNames.login;
+    if (isRestoring) {
+      return isOnSplash ? null : RouteNames.splash;
     }
 
-    if (isAuthRoute) {
-      return RoleGuard.homeForRole(role);
+    if (isOnSplash) return null;
+
+    if (role != null) {
+      return isOnLogin ? RoleGuard.homeForRole(role) : null;
     }
 
-    return null;
+    return isOnLogin ? null : RouteNames.login;
+  }
+
+  static String? _redirect(BuildContext context, GoRouterState state) {
+    return resolveRedirect(
+      location: state.matchedLocation,
+      isRestoring: RoleGuard.isRestoring,
+      role: RoleGuard.currentRole(),
+    );
   }
 }

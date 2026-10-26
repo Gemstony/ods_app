@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:ods_app/widgets/logout_menu.dart';
 
 import '../core/routing/route_names.dart';
 
@@ -62,13 +62,7 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
-        actions: [
-          IconButton(
-            tooltip: 'Back to login',
-            icon: const Icon(Icons.logout),
-            onPressed: () => context.go(RouteNames.login),
-          ),
-        ],
+        actions: const [LogoutMenu()],
       ),
       body: IndexedStack(
         index: _index,

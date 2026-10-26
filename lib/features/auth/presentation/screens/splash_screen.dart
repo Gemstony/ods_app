@@ -1,41 +1,48 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/config/app_config.dart';
+import '../../../../core/routing/role_guard.dart';
 import '../../../../core/routing/route_names.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../shared/providers/auth_provider.dart';
 
-/// Brand splash shown at app launch. Auto-navigates to `/login` after a short
-/// delay; the router's redirect logic takes over from there (dormant until
-/// Phase 3 enables `AppRouter.enforceAuth`).
-class SplashScreen extends StatefulWidget {
+/// Brand splash + session restore.
+///
+/// Runs `restoreSession()` and a 1.5s minimum-duration timer in parallel.
+/// When both complete, routes to the role's home (if restored) or to
+/// `/login` (if not). Router redirects are suspended while we're on splash
+/// — this screen owns startup navigation.
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
-  Timer? _redirectTimer;
-
+class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _redirectTimer = Timer(
-      const Duration(milliseconds: 1500),
-      () {
-        if (!mounted) return;
-        context.go(RouteNames.login);
-      },
-    );
+    _bootstrap();
   }
 
-  @override
-  void dispose() {
-    _redirectTimer?.cancel();
-    super.dispose();
+  Future<void> _bootstrap() async {
+    // Kick off restore and the branding delay concurrently.
+    await Future.wait([
+      ref.read(sessionProvider.notifier).restoreSession(),
+      Future<void>.delayed(const Duration(milliseconds: 1500)),
+    ]);
+
+    if (!mounted) return;
+
+    final session = ref.read(sessionProvider).valueOrNull;
+    if (session != null) {
+      context.go(RoleGuard.homeForRole(session.role));
+    } else {
+      context.go(RouteNames.login);
+    }
   }
 
   @override

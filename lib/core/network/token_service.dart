@@ -71,6 +71,26 @@ class TokenService {
     await _storage.delete(_kDisplayName);
   }
 
+    /// Returns the currently-stored access + refresh tokens as an
+  /// [AuthTokens] object, or `null` if either is missing.
+  ///
+  /// The `expiresIn` field is a placeholder (3600) because the true value
+  /// is only known at issue time and isn't needed by any code path that
+  /// reads restored tokens. If a future screen needs accurate expiry, add
+  /// a `ods.auth.access_expires_at` key and populate it on every
+  /// `persistSession`.
+  Future<AuthTokens?> getStoredTokens() async {
+    final access = await getAccessToken();
+    final refresh = await getRefreshToken();
+    if (access == null || refresh == null) return null;
+    return AuthTokens(
+      accessToken: access,
+      refreshToken: refresh,
+      tokenType: 'bearer',
+      expiresIn: 3600,
+    );
+  }
+
   // ─── Refresh ───────────────────────────────────────────────
   /// Attempts to rotate the token pair using the stored refresh token.
   ///
