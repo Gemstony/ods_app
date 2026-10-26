@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/storage_keys.dart';
 import '../../core/utils/logger.dart';
 import '../../data/local/secure_storage.dart';
+import '../../core/network/token_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────
 // Session model
@@ -42,6 +43,12 @@ class Session {
 final secureStorageProvider = Provider<SecureStorageInterface>(
   (ref) => SecureStorage(),
 );
+
+/// Depends on [secureStorageProvider] so tests can override the storage
+/// implementation without touching this provider.
+final tokenServiceProvider = Provider<TokenService>((ref) {
+  return TokenService(storage: ref.read(secureStorageProvider));
+});
 
 // ─────────────────────────────────────────────────────────────────────
 // Session notifier
