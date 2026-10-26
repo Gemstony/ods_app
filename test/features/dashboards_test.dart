@@ -1,27 +1,49 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ods_app/app.dart';
+import 'package:go_router/go_router.dart';
 import 'package:ods_app/core/config/app_config.dart';
-import 'package:ods_app/features/auth/presentation/screens/login_screen.dart';
+import 'package:ods_app/core/theme/app_theme.dart';
 import 'package:ods_app/features/distributor/presentation/screens/distributor_dashboard_screen.dart';
 import 'package:ods_app/features/manager/presentation/screens/manager_dashboard_screen.dart';
 import 'package:ods_app/features/owner/presentation/screens/owner_dashboard_screen.dart';
 import 'package:ods_app/features/receiver/presentation/screens/receiver_dashboard_screen.dart';
 import 'package:ods_app/features/rider/presentation/screens/rider_dashboard_screen.dart';
 
-/// Tests for the five role dashboards built in Sub-phase 1.6.
-///
-/// As in `app_smoke_test.dart`:
-///   • `pumpAndSettle()` after every navigation action so route transitions
-///     complete before assertions run.
-///   • `ensureVisible()` before tapping the dev role chip, because the dev
-///     panel sits below the fold on an 800×600 test viewport.
-void main() {
-  // ─── Owner ─────────────────────────────────────────────────────────
-  testWidgets('Owner dashboard renders with 5 tabs', (tester) async {
-    await _bootTo(tester, 'Owner');
+/// Minimal router that renders [dashboard] directly at /dashboard, and a
+/// stub at /login so the dashboard's AppBar logout action (which calls
+/// `context.go(RouteNames.login)`) doesn't throw during interaction tests.
+Widget _wrapDashboard(Widget dashboard) {
+  final router = GoRouter(
+    initialLocation: '/dashboard',
+    routes: [
+      GoRoute(path: '/dashboard', builder: (_, __) => dashboard),
+      GoRoute(
+        path: '/login',
+        builder: (_, __) => const Scaffold(body: Text('Login stub')),
+      ),
+    ],
+  );
 
-    expect(find.byType(OwnerDashboardScreen), findsOneWidget);
+  return ProviderScope(
+    child: MaterialApp.router(
+      theme: AppTheme.light,
+      routerConfig: router,
+    ),
+  );
+}
+
+Future<void> _pumpDashboard(WidgetTester tester, Widget dashboard) async {
+  await tester.pumpWidget(_wrapDashboard(dashboard));
+  await tester.pumpAndSettle();
+}
+
+void main() {
+  setUpAll(AppConfig.initialize);
+
+  testWidgets('Owner dashboard renders with 5 tabs', (tester) async {
+    await _pumpDashboard(tester, const OwnerDashboardScreen());
+
     final navBar = tester.widget<NavigationBar>(find.byType(NavigationBar));
     expect(navBar.destinations.length, 5);
     expect(navBar.selectedIndex, 0);
@@ -31,61 +53,44 @@ void main() {
     }
   });
 
-  // ─── Manager ───────────────────────────────────────────────────────
   testWidgets('Manager dashboard renders with 5 tabs', (tester) async {
-    await _bootTo(tester, 'Manager');
-
-    expect(find.byType(ManagerDashboardScreen), findsOneWidget);
+    await _pumpDashboard(tester, const ManagerDashboardScreen());
     final navBar = tester.widget<NavigationBar>(find.byType(NavigationBar));
     expect(navBar.destinations.length, 5);
-
     for (final label in ['Home', 'Staff', 'Deliveries', 'Packages', 'Profile']) {
       expect(find.text(label), findsWidgets);
     }
   });
 
-  // ─── Distributor ──────────────────────────────────────────────────
   testWidgets('Distributor dashboard renders with 5 tabs', (tester) async {
-    await _bootTo(tester, 'Distributor');
-
-    expect(find.byType(DistributorDashboardScreen), findsOneWidget);
+    await _pumpDashboard(tester, const DistributorDashboardScreen());
     final navBar = tester.widget<NavigationBar>(find.byType(NavigationBar));
     expect(navBar.destinations.length, 5);
-
     for (final label in ['Home', 'New', 'History', 'Rewards', 'Profile']) {
       expect(find.text(label), findsWidgets);
     }
   });
 
-  // ─── Rider ────────────────────────────────────────────────────────
   testWidgets('Rider dashboard renders with 4 tabs', (tester) async {
-    await _bootTo(tester, 'Rider');
-
-    expect(find.byType(RiderDashboardScreen), findsOneWidget);
+    await _pumpDashboard(tester, const RiderDashboardScreen());
     final navBar = tester.widget<NavigationBar>(find.byType(NavigationBar));
     expect(navBar.destinations.length, 4);
-
     for (final label in ['Tasks', 'Active', 'Earnings', 'Profile']) {
       expect(find.text(label), findsWidgets);
     }
   });
 
-  // ─── Receiver ─────────────────────────────────────────────────────
   testWidgets('Receiver dashboard renders with 4 tabs', (tester) async {
-    await _bootTo(tester, 'Receiver');
-
-    expect(find.byType(ReceiverDashboardScreen), findsOneWidget);
+    await _pumpDashboard(tester, const ReceiverDashboardScreen());
     final navBar = tester.widget<NavigationBar>(find.byType(NavigationBar));
     expect(navBar.destinations.length, 4);
-
     for (final label in ['Packages', 'Regional', 'History', 'Profile']) {
       expect(find.text(label), findsWidgets);
     }
   });
 
-  // ─── Tab switching ────────────────────────────────────────────────
   testWidgets('tapping a tab updates the selected index', (tester) async {
-    await _bootTo(tester, 'Owner');
+    await _pumpDashboard(tester, const OwnerDashboardScreen());
 
     var navBar = tester.widget<NavigationBar>(find.byType(NavigationBar));
     expect(navBar.selectedIndex, 0);
@@ -100,42 +105,4 @@ void main() {
     navBar = tester.widget<NavigationBar>(find.byType(NavigationBar));
     expect(navBar.selectedIndex, 3);
   });
-
-  // ─── Back to login ────────────────────────────────────────────────
-  testWidgets('logout icon returns to login from any dashboard',
-      (tester) async {
-    await _bootTo(tester, 'Distributor');
-
-    expect(find.byType(DistributorDashboardScreen), findsOneWidget);
-
-    await tester.tap(find.byTooltip('Back to login'));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(LoginScreen), findsOneWidget);
-    expect(find.byType(DistributorDashboardScreen), findsNothing);
-  });
-}
-
-// ─── Shared helper ──────────────────────────────────────────────────
-
-/// Boots the app, waits through the splash, settles on login, then taps a
-/// role chip (after ensuring it's on-screen) and lands on that dashboard.
-Future<void> _bootTo(WidgetTester tester, String roleLabel) async {
-  AppConfig.initialize();
-  await tester.pumpWidget(const OdsApp());
-
-  // Splash → login
-  await tester.pump();
-  await tester.pump(const Duration(milliseconds: 1600));
-  await tester.pumpAndSettle();
-  expect(find.byType(LoginScreen), findsOneWidget);
-
-  // Login → dashboard
-  final chip = find.widgetWithText(ActionChip, roleLabel);
-  expect(chip, findsOneWidget,
-      reason: 'Dev role chip "$roleLabel" not found on login screen');
-  await tester.ensureVisible(chip);
-  await tester.pumpAndSettle();
-  await tester.tap(chip);
-  await tester.pumpAndSettle();
 }

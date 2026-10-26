@@ -1,39 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/constants/storage_keys.dart';
+import '../../core/network/token_service.dart';
 import '../../core/utils/logger.dart';
 import '../../data/local/secure_storage.dart';
-import '../../core/network/token_service.dart';
+import '../../data/models/auth/auth_tokens.dart';
+import '../../data/models/auth/auth_user.dart';
 
 // ─────────────────────────────────────────────────────────────────────
-// Session model
-// ─────────────────────────────────────────────────────────────────────
-
-/// An authenticated session.
-///
-/// Deliberately minimal — holds just what the UI and router need to know.
-/// Full user profile (name, email, branch, etc.) arrives in Phase 3 with the
-/// real auth flow.
-class Session {
-  final String userId;
-  final String role;
-  final String accessToken;
-  final String? displayName;
-
-  const Session({
-    required this.userId,
-    required this.role,
-    required this.accessToken,
-    this.displayName,
-  });
-
-  @override
-  String toString() =>
-      'Session(userId: $userId, role: $role, displayName: $displayName)';
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// Storage provider (injectable for tests)
+// Storage providers
 // ─────────────────────────────────────────────────────────────────────
 
 /// Provides the [SecureStorageInterface] implementation the app should use.
@@ -44,11 +18,34 @@ final secureStorageProvider = Provider<SecureStorageInterface>(
   (ref) => SecureStorage(),
 );
 
+/// Provides the app's [TokenService].
+///
 /// Depends on [secureStorageProvider] so tests can override the storage
 /// implementation without touching this provider.
 final tokenServiceProvider = Provider<TokenService>((ref) {
   return TokenService(storage: ref.read(secureStorageProvider));
 });
+
+// ─────────────────────────────────────────────────────────────────────
+// Session state
+// ─────────────────────────────────────────────────────────────────────
+
+/// The current session — a full user + their tokens.
+///
+/// Wrapped in a class (not a nullable record) so Phase 3.4 can add
+/// "session restored" flags or metadata without churning every provider.
+class Session {
+  final AuthUser user;
+  final AuthTokens tokens;
+
+  const Session({required this.user, required this.tokens});
+
+  String get userId => user.id.toString();
+  String get role => user.role;
+  String? get branchId => user.branchId?.toString();
+  String? get displayName => user.name;
+  List<String> get permissions => user.permissions;
+}
 
 // ─────────────────────────────────────────────────────────────────────
 // Session notifier
@@ -57,83 +54,47 @@ final tokenServiceProvider = Provider<TokenService>((ref) {
 /// Holds the current session state and mediates persistence.
 ///
 /// State shape:
-///   - `AsyncValue.loading()`       → reading from storage at startup
-///   - `AsyncValue.data(null)`      → no session (signed out)
-///   - `AsyncValue.data(Session)`   → signed in
-///   - `AsyncValue.error(...)`      → storage failure (rare; recoverable by
-///                                    the "sign out" dev button)
+///   - `AsyncValue.loading()`     → startup (brief; resolves to null)
+///   - `AsyncValue.data(null)`    → no session (signed out)
+///   - `AsyncValue.data(Session)` → signed in
+///   - `AsyncValue.error(...)`    → storage failure (recoverable via signOut)
+///
+/// NOTE: pre-3.4, this class does NOT restore a session from storage on
+/// app startup. Restoring a Session requires calling `/auth/me` to
+/// rebuild the `AuthUser` from the server — a network operation with
+/// proper loading and error handling. That is Phase 3.4's job. Pre-3.4,
+/// app reload = signed out, which is intentional and honest.
 class SessionNotifier extends StateNotifier<AsyncValue<Session?>> {
-  SessionNotifier({required SecureStorageInterface storage})
-      : _storage = storage,
-        super(const AsyncValue.loading()) {
-    _loadFromStorage();
-  }
+  SessionNotifier({required TokenService tokenService})
+      : _tokenService = tokenService,
+        super(const AsyncValue.data(null)); // start signed-out
 
-  final SecureStorageInterface _storage;
+  final TokenService _tokenService;
 
-  Future<void> _loadFromStorage() async {
-    try {
-      final token = await _storage.read(StorageKeys.accessToken);
-      final role = await _storage.read(StorageKeys.userRole);
-      final userId = await _storage.read(StorageKeys.userId);
-      final displayName = await _storage.read(StorageKeys.displayName);
-
-      if (token != null && role != null && userId != null) {
-        state = AsyncValue.data(Session(
-          userId: userId,
-          role: role,
-          accessToken: token,
-          displayName: displayName,
-        ));
-      } else {
-        state = const AsyncValue.data(null);
-      }
-    } catch (e, st) {
-      // A storage read failure shouldn't wedge the app — treat as signed out.
-      AppLogger.e('Failed to load session from storage',
-          error: e, stackTrace: st);
-      state = const AsyncValue.data(null);
-    }
-  }
-
-  /// Signs in and persists the session.
+  /// Called by the login screen on a successful `/auth/login`.
   ///
-  /// Phase 3 replaces the direct call with a real API round-trip; the
-  /// persistence and state-update logic stay exactly as written here.
+  /// Persists tokens first, then updates in-memory state — so any widget
+  /// rebuilt by the state change sees a consistent world where storage
+  /// and state agree.
   Future<void> signIn({
-    required String userId,
-    required String role,
-    required String accessToken,
-    String? displayName,
-    String? refreshToken,
+    required AuthUser user,
+    required AuthTokens tokens,
   }) async {
-    await _storage.write(StorageKeys.accessToken, accessToken);
-    await _storage.write(StorageKeys.userRole, role);
-    await _storage.write(StorageKeys.userId, userId);
-    if (displayName != null) {
-      await _storage.write(StorageKeys.displayName, displayName);
-    }
-    if (refreshToken != null) {
-      await _storage.write(StorageKeys.refreshToken, refreshToken);
-    }
-
-    state = AsyncValue.data(Session(
-      userId: userId,
-      role: role,
-      accessToken: accessToken,
-      displayName: displayName,
-    ));
+    await _tokenService.persistSession(user: user, tokens: tokens);
+    state = AsyncValue.data(Session(user: user, tokens: tokens));
   }
 
   /// Clears the session from memory and secure storage.
   Future<void> signOut() async {
-    await _storage.delete(StorageKeys.accessToken);
-    await _storage.delete(StorageKeys.refreshToken);
-    await _storage.delete(StorageKeys.userRole);
-    await _storage.delete(StorageKeys.userId);
-    await _storage.delete(StorageKeys.displayName);
-    await _storage.delete(StorageKeys.lastActivityAt);
+    await _tokenService.clearTokens();
+    state = const AsyncValue.data(null);
+  }
 
+  /// Called by [ApiClient]'s `onSessionExpired` callback when the refresh
+  /// interceptor has determined the session is truly dead.
+  Future<void> handleSessionExpired() async {
+    AppLogger.i('Session expired — clearing tokens and signing out');
+    await _tokenService.clearTokens();
     state = const AsyncValue.data(null);
   }
 }
@@ -144,11 +105,10 @@ class SessionNotifier extends StateNotifier<AsyncValue<Session?>> {
 
 final sessionProvider =
     StateNotifierProvider<SessionNotifier, AsyncValue<Session?>>(
-  (ref) => SessionNotifier(storage: ref.read(secureStorageProvider)),
+  (ref) => SessionNotifier(tokenService: ref.read(tokenServiceProvider)),
 );
 
 /// Convenience selector — the current role, or null if signed out.
-///
 /// `RoleGuard.roleProvider` is wired to read from this.
 final currentRoleProvider = Provider<String?>(
   (ref) => ref.watch(sessionProvider).valueOrNull?.role,
@@ -162,4 +122,10 @@ final isAuthenticatedProvider = Provider<bool>(
 /// Convenience selector — current user id, or null.
 final currentUserIdProvider = Provider<String?>(
   (ref) => ref.watch(sessionProvider).valueOrNull?.userId,
+);
+
+/// Convenience selector — the full user (for screens that need
+/// permissions, branch_id, etc.).
+final currentUserProvider = Provider<AuthUser?>(
+  (ref) => ref.watch(sessionProvider).valueOrNull?.user,
 );

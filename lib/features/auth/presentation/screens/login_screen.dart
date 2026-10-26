@@ -3,11 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/config/app_config.dart';
+import '../../../../core/errors/failure.dart';
 import '../../../../core/routing/role_guard.dart';
-import '../../../../core/routing/route_names.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
-import '../../../../data/repositories/health_repository.dart';
+import '../../../../core/utils/validators.dart';
+import '../../../../data/models/auth/auth_login_result.dart';
+import '../../../../data/repositories/auth_repository.dart';
 import '../../../../shared/providers/auth_provider.dart';
 import '../../../../widgets/widgets.dart';
 
@@ -19,11 +21,25 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
+  final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _healthRepo = HealthRepository();
 
-  bool _checkingApi = false;
+  late final AuthRepository _authRepo;
+
+  bool _submitting = false;
+  AutovalidateMode _autoValidate = AutovalidateMode.disabled;
+
+  // Field-level errors returned by the server on 422. Cleared on next
+  // submit so stale server errors don't overlay fresh input.
+  String? _emailServerError;
+  String? _passwordServerError;
+
+  @override
+  void initState() {
+    super.initState();
+    _authRepo = AuthRepository();
+  }
 
   @override
   void dispose() {
@@ -32,61 +48,83 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
-  void _onSignIn() {
-    _showSnack('Real sign-in is wired in Phase 3.');
-  }
+  // ─── Submit ───────────────────────────────────────────────
+  Future<void> _onSubmit() async {
+    // 1. Clear stale server errors.
+    setState(() {
+      _emailServerError = null;
+      _passwordServerError = null;
+    });
 
-  Future<void> _onTestApi() async {
-    setState(() => _checkingApi = true);
-    final result = await _healthRepo.check();
+    // 2. Client-side validation.
+    final form = _formKey.currentState;
+    if (form == null || !form.validate()) {
+      setState(() => _autoValidate = AutovalidateMode.onUserInteraction);
+      return;
+    }
+
+    // 3. Kick off the request.
+    setState(() => _submitting = true);
+
+    final result = await _authRepo.login(
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
+    );
+
     if (!mounted) return;
-    setState(() => _checkingApi = false);
+    setState(() => _submitting = false);
 
+    // 4. Handle outcome.
     result.fold(
-      onSuccess: (data) => _showSnack(
-        'API OK · env=${data['env']} · db=${data['database']}',
-      ),
-      onFailure: (failure) => _showSnack(failure.message, isError: true),
+      onSuccess: (AuthLoginResult loginResult) => _handleSuccess(loginResult),
+      onFailure: (Failure failure) => _handleFailure(failure),
     );
   }
 
-  Future<void> _devSignIn(String role) async {
-    final normalized = role.toLowerCase();
+  Future<void> _handleSuccess(AuthLoginResult loginResult) async {
+    // Persist tokens + update session state BEFORE navigating, so the
+    // router's redirect sees the role.
     await ref.read(sessionProvider.notifier).signIn(
-          userId: 'dev-$normalized-001',
-          role: normalized,
-          accessToken: 'dev-token-${DateTime.now().millisecondsSinceEpoch}',
-          displayName: 'Dev ${role[0]}${role.substring(1).toLowerCase()}',
+          user: loginResult.user,
+          tokens: loginResult.tokens,
         );
+
     if (!mounted) return;
-    context.go(RoleGuard.homeForRole(normalized));
+    context.go(RoleGuard.homeForRole(loginResult.user.role));
   }
 
-  Future<void> _devSignOut() async {
-    await ref.read(sessionProvider.notifier).signOut();
-    if (!mounted) return;
-    _showSnack('Session cleared.');
-  }
+  void _handleFailure(Failure failure) {
+    // 422: field-level errors → inline under each field.
+    if (failure.fieldErrors.isNotEmpty) {
+      setState(() {
+        _emailServerError = _firstOrNull(failure.fieldErrors['email']);
+        _passwordServerError = _firstOrNull(failure.fieldErrors['password']);
+        _autoValidate = AutovalidateMode.onUserInteraction;
+      });
+      _formKey.currentState?.validate();
+      return;
+    }
 
-  void _showSnack(String message, {bool isError = false}) {
+    // Everything else (401, 403, 429, 500, network): single red SnackBar
+    // with the server's message.
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
       ..showSnackBar(
         SnackBar(
-          content: Text(message),
-          backgroundColor: isError ? AppColors.error : null,
+          content: Text(failure.message),
+          backgroundColor: AppColors.error,
+          duration: const Duration(seconds: 4),
         ),
       );
   }
 
-  void _goTo(String path) => context.go(path);
+  static String? _firstOrNull(List<String>? list) =>
+      (list == null || list.isEmpty) ? null : list.first;
 
+  // ─── Build ────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    final sessionAsync = ref.watch(sessionProvider);
-    final session = sessionAsync.valueOrNull;
-    final isSignedIn = session != null;
 
     return Scaffold(
       body: SafeArea(
@@ -97,7 +135,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             children: [
               const SizedBox(height: AppSpacing.xl),
 
-              // ─── Brand ───────────────────────────────────────────
+              // ─── Brand ────────────────────────────────────────
               Center(
                 child: CircleAvatar(
                   radius: 44,
@@ -126,130 +164,65 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
               const SizedBox(height: AppSpacing.xl),
 
-              // ─── Form ────────────────────────────────────────────
-              AppTextField(
-                controller: _emailController,
-                label: 'Email',
-                hint: 'you@example.com',
-                keyboardType: TextInputType.emailAddress,
-                textInputAction: TextInputAction.next,
-                prefixIcon: Icons.mail_outline_rounded,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              AppTextField(
-                controller: _passwordController,
-                label: 'Password',
-                obscureText: true,
-                textInputAction: TextInputAction.done,
-                prefixIcon: Icons.lock_outline_rounded,
-                onFieldSubmitted: (_) => _onSignIn(),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              AppButton(
-                label: 'Sign in',
-                onPressed: _onSignIn,
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              AppButton(
-                label: 'Forgot password?',
-                onPressed: _onSignIn,
-                variant: AppButtonVariant.text,
-                isFullWidth: false,
-              ),
-
-              // ─── Dev-only helpers ────────────────────────────────
-              if (AppConfig.isDev) ...[
-                const SizedBox(height: AppSpacing.xl),
-                const Divider(),
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  'Dev shortcuts',
-                  textAlign: TextAlign.center,
-                  style: text.labelMedium?.copyWith(
-                    color: AppColors.onSurfaceMuted,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-
-                // Session status
-                sessionAsync.when(
-                  loading: () => Text(
-                    'Loading session…',
-                    textAlign: TextAlign.center,
-                    style: text.bodySmall?.copyWith(
-                      color: AppColors.onSurfaceSubtle,
-                    ),
-                  ),
-                  error: (e, _) => Text(
-                    'Session error: $e',
-                    textAlign: TextAlign.center,
-                    style: text.bodySmall?.copyWith(color: AppColors.error),
-                  ),
-                  data: (s) => StatusChip(
-                    label: s == null
-                        ? 'Not signed in'
-                        : 'Signed in as ${s.role}',
-                    type: s == null ? StatusType.neutral : StatusType.success,
-                    icon: s == null ? Icons.lock_outline : Icons.check,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-
-                if (!isSignedIn)
-                  AppButton(
-                    label: 'Dev sign in as Owner',
-                    onPressed: () => _devSignIn('Owner'),
-                    variant: AppButtonVariant.secondary,
-                    icon: Icons.login_rounded,
-                  )
-                else
-                  AppButton(
-                    label: 'Clear session',
-                    onPressed: _devSignOut,
-                    variant: AppButtonVariant.secondary,
-                    icon: Icons.logout_rounded,
-                  ),
-
-                const SizedBox(height: AppSpacing.sm),
-
-                // Role-jump chips (navigate without touching session)
-                Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: AppSpacing.xs,
-                  runSpacing: AppSpacing.xs,
+              // ─── Form ─────────────────────────────────────────
+              Form(
+                key: _formKey,
+                autovalidateMode: _autoValidate,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    ActionChip(
-                      label: const Text('Owner'),
-                      onPressed: () => _goTo(RouteNames.owner),
+                    AppTextField(
+                      controller: _emailController,
+                      label: 'Email',
+                      hint: 'you@example.com',
+                      keyboardType: TextInputType.emailAddress,
+                      textInputAction: TextInputAction.next,
+                      prefixIcon: Icons.mail_outline_rounded,
+                      enabled: !_submitting,
+                      validator: (v) =>
+                          _emailServerError ?? Validators.email(v),
                     ),
-                    ActionChip(
-                      label: const Text('Manager'),
-                      onPressed: () => _goTo(RouteNames.manager),
+                    const SizedBox(height: AppSpacing.sm),
+                    AppTextField(
+                      controller: _passwordController,
+                      label: 'Password',
+                      obscureText: true,
+                      textInputAction: TextInputAction.done,
+                      prefixIcon: Icons.lock_outline_rounded,
+                      enabled: !_submitting,
+                      validator: (v) =>
+                          _passwordServerError ??
+                          Validators.password(v, minLength: 1),
+                      onFieldSubmitted: (_) => _onSubmit(),
                     ),
-                    ActionChip(
-                      label: const Text('Distributor'),
-                      onPressed: () => _goTo(RouteNames.distributor),
+                    const SizedBox(height: AppSpacing.md),
+                    AppButton(
+                      label: 'Sign in',
+                      onPressed: _onSubmit,
+                      isLoading: _submitting,
                     ),
-                    ActionChip(
-                      label: const Text('Rider'),
-                      onPressed: () => _goTo(RouteNames.rider),
-                    ),
-                    ActionChip(
-                      label: const Text('Receiver'),
-                      onPressed: () => _goTo(RouteNames.receiver),
+                    const SizedBox(height: AppSpacing.xs),
+                    AppButton(
+                      label: 'Forgot password?',
+                      onPressed: _submitting
+                          ? null
+                          : () {
+                              ScaffoldMessenger.of(context)
+                                ..clearSnackBars()
+                                ..showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Password reset is coming in Phase 15.',
+                                    ),
+                                  ),
+                                );
+                            },
+                      variant: AppButtonVariant.text,
+                      isFullWidth: false,
                     ),
                   ],
                 ),
-                const SizedBox(height: AppSpacing.sm),
-                AppButton(
-                  label: 'Test API connection',
-                  onPressed: _checkingApi ? null : _onTestApi,
-                  variant: AppButtonVariant.text,
-                  icon: Icons.wifi_tethering,
-                  isLoading: _checkingApi,
-                  isFullWidth: false,
-                ),
-              ],
+              ),
 
               const SizedBox(height: AppSpacing.xl),
               Text(
