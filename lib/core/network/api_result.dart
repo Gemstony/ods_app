@@ -1,6 +1,7 @@
 import '../errors/app_exception.dart';
 import '../errors/failure.dart';
 import '../utils/logger.dart';
+import 'package:dio/dio.dart';
 
 /// Sealed result type returned by every repository method.
 ///
@@ -52,8 +53,19 @@ sealed class ApiResult<T> {
 
   /// Runs [block] and captures any thrown error into a typed [ApiResult].
   ///
-  /// - [AppException] → converted via [Failure.fromException]
-  /// - any other `Object` → wrapped as `AppException.unknown` first
+  /// Handles three cases in order:
+  ///
+  ///   1. `AppException`       — thrown directly by our own code
+  ///                             (e.g., `StateError` wrapped by a repo, or
+  ///                             `AppException.parsing()` from a bad payload)
+  ///
+  ///   2. `DioException`       — thrown by Dio after our ErrorMappingInterceptor
+  ///                             rejected the request. The interceptor stashes
+  ///                             the mapped `AppException` in `err.error`, so
+  ///                             we unwrap it here. This is the normal path for
+  ///                             HTTP errors (4xx / 5xx).
+  ///
+  ///   3. any other `Object`   — wrapped as `AppException.unknown`
   ///
   /// The catch is broad on purpose: repositories should never let an
   /// unhandled exception escape to the UI layer.
@@ -68,6 +80,32 @@ sealed class ApiResult<T> {
         stackTrace: st,
       );
       return ApiFailure<T>(Failure.fromException(e));
+    } on DioException catch (e, st) {
+      // Dio's interceptors can only reject with DioException. Our
+      // ErrorMappingInterceptor stashes the mapped AppException in `.error`.
+      final cause = e.error;
+      if (cause is AppException) {
+        AppLogger.w(
+          'HTTP error mapped: ${cause.type.name}: ${cause.message}',
+          error: cause,
+          stackTrace: st,
+        );
+        return ApiFailure<T>(Failure.fromException(cause));
+      }
+      // Fallback if the interceptor chain somehow didn't map the error
+      // (e.g., a repo instantiated Dio without our interceptors). Surface
+      // a network failure — it's the most likely cause and it's retryable.
+      AppLogger.e(
+        'DioException without mapped AppException',
+        error: e,
+        stackTrace: st,
+      );
+      final wrapped = AppException.network(
+        message: 'Network request failed',
+        cause: e,
+        stackTrace: st,
+      );
+      return ApiFailure<T>(Failure.fromException(wrapped));
     } catch (e, st) {
       AppLogger.e(
         'Unhandled exception in guarded block',

@@ -7,8 +7,9 @@ DioException _err({
   DioExceptionType type = DioExceptionType.badResponse,
   int? status,
   dynamic body,
+  String path = '/test',
 }) {
-  final options = RequestOptions(path: '/test');
+  final options = RequestOptions(path: path);
   final response = status == null
       ? null
       : Response<dynamic>(
@@ -24,6 +25,7 @@ DioException _err({
 }
 
 void main() {
+  // ─── Transport errors ──────────────────────────────────────
   group('ErrorMappingInterceptor.mapDioException — transport errors', () {
     test('connectionError → network', () {
       final e = ErrorMappingInterceptor.mapDioException(
@@ -63,18 +65,27 @@ void main() {
     });
   });
 
+  // ─── HTTP status errors on PROTECTED endpoints ─────────────
   group('ErrorMappingInterceptor.mapDioException — HTTP status', () {
-    test('401 → auth', () {
+    test('401 on protected endpoint → auth (session expired)', () {
       final e = ErrorMappingInterceptor.mapDioException(
-        _err(status: 401, body: {'message': 'Unauthenticated'}),
+        _err(
+          status: 401,
+          path: '/auth/me',
+          body: {'message': 'Unauthenticated.'},
+        ),
       );
       expect(e.type, AppExceptionType.auth);
-      expect(e.message, 'Unauthenticated');
+      expect(e.message, 'Unauthenticated.');
     });
 
-    test('403 → auth', () {
+    test('403 on protected endpoint → auth', () {
       final e = ErrorMappingInterceptor.mapDioException(
-        _err(status: 403, body: {'message': 'Forbidden'}),
+        _err(
+          status: 403,
+          path: '/owner/branches',
+          body: {'message': 'Forbidden'},
+        ),
       );
       expect(e.type, AppExceptionType.auth);
     });
@@ -100,6 +111,7 @@ void main() {
           },
         ),
       );
+
       expect(e.type, AppExceptionType.validation);
       expect(e.message, 'Validation failed');
       expect(e.fieldErrors['email'], ['The email field is required.']);
@@ -128,6 +140,59 @@ void main() {
       );
       expect(e.type, AppExceptionType.server);
       expect(e.message.isNotEmpty, isTrue);
+    });
+  });
+
+  // ─── HTTP status errors on AUTH-ESTABLISHMENT endpoints ───
+  group('ErrorMappingInterceptor.mapDioException — auth endpoints', () {
+    test('401 on /auth/login → client (not auth)', () {
+      final e = ErrorMappingInterceptor.mapDioException(
+        _err(
+          status: 401,
+          path: '/auth/login',
+          body: {'message': 'Invalid email or password.'},
+        ),
+      );
+      expect(e.type, AppExceptionType.client);
+      expect(e.message, 'Invalid email or password.');
+    });
+
+    test('403 on /auth/login → client (pending / suspended account)', () {
+      final e = ErrorMappingInterceptor.mapDioException(
+        _err(
+          status: 403,
+          path: '/auth/login',
+          body: {
+            'message': 'Your account is pending approval. Please wait for the administrator.',
+          },
+        ),
+      );
+      expect(e.type, AppExceptionType.client);
+      expect(e.message, contains('pending approval'));
+    });
+
+    test('401 on /auth/refresh → client (invalid or expired refresh token)', () {
+      final e = ErrorMappingInterceptor.mapDioException(
+        _err(
+          status: 401,
+          path: '/auth/refresh',
+          body: {'message': 'Invalid or expired refresh token.'},
+        ),
+      );
+      expect(e.type, AppExceptionType.client);
+      expect(e.message, contains('Invalid or expired'));
+    });
+
+    test('403 on /auth/register/distributor → client', () {
+      final e = ErrorMappingInterceptor.mapDioException(
+        _err(
+          status: 403,
+          path: '/auth/register/distributor',
+          body: {'message': 'Email already registered.'},
+        ),
+      );
+      expect(e.type, AppExceptionType.client);
+      expect(e.message, 'Email already registered.');
     });
   });
 }

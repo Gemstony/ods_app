@@ -107,6 +107,25 @@ class ErrorMappingInterceptor extends Interceptor {
     final data = response.data;
     final message = _extractMessage(data) ?? _defaultMessageFor(status);
     final fieldErrors = _extractFieldErrors(data);
+    final path = err.requestOptions.path;
+
+    // ─── Auth-endpoint special case ──────────────────────────
+    // On /auth/login, /auth/register/*, and /auth/refresh, a 401 or 403
+    // does NOT mean "session expired" (there's no session yet, or the
+    // whole point of the call is to establish / rotate one). It means
+    // "your credentials or account has an issue" — a client error the
+    // user should see and act on. Preserving the server message and
+    // typing it as `client` lets the UI display it and retry.
+    //
+    // On protected endpoints, 401/403 DOES mean "session expired" — we
+    // map those to `auth`, which is the sign-out signal.
+    final isAuthEstablishmentPath = path.contains('/auth/login') ||
+        path.contains('/auth/register/') ||
+        path.contains('/auth/refresh');
+
+    if ((status == 401 || status == 403) && isAuthEstablishmentPath) {
+      return AppException.client(message: message, cause: err);
+    }
 
     if (status == 401 || status == 403) {
       return AppException.auth(message: message, cause: err);

@@ -12,12 +12,14 @@ class ApiEndpoints {
   static const String health = '/health';
 
   // ─── Auth (populated in Phase 3) ─────────────────────────────────
+  // ─── Auth ────────────────────────────────────────────────────────
   static const String login = '/auth/login';
   static const String logout = '/auth/logout';
+  static const String logoutAll = '/auth/logout-all';
   static const String refresh = '/auth/refresh';
   static const String me = '/auth/me';
   static const String registerDistributor = '/auth/register/distributor';
-
+  
   // ─── Owner (populated in Phase 5) ────────────────────────────────
   static const String ownerBranches = '/owner/branches';
   static const String ownerUsers = '/owner/users';
