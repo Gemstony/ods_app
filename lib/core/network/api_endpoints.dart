@@ -19,7 +19,7 @@ class ApiEndpoints {
   static const String refresh = '/auth/refresh';
   static const String me = '/auth/me';
   static const String registerDistributor = '/auth/register/distributor';
-  
+
   // ─── Owner (populated in Phase 5) ────────────────────────────────
   static const String ownerBranches = '/owner/branches';
   static const String ownerUsers = '/owner/users';
@@ -31,7 +31,8 @@ class ApiEndpoints {
 
   // ─── Distributor (populated in Phase 7) ──────────────────────────
   static const String distributorDeliveries = '/distributor/deliveries';
-  static const String distributorPricePreview = '/distributor/deliveries/price-preview';
+  static const String distributorPricePreview =
+      '/distributor/deliveries/price-preview';
 
   // ─── Rider (populated in Phase 8) ────────────────────────────────
   static const String riderTasks = '/rider/tasks';
@@ -41,6 +42,13 @@ class ApiEndpoints {
   static const String receiverPackages = '/receiver/packages';
 
   // ─── Payments (populated in Phase 11) ────────────────────────────
+  // ─── Payments ────────────────────────────────────────────────────
+  static const String payments = '/payments';
   static const String paymentsInitiate = '/payments/initiate';
-  static const String paymentsStatus = '/payments/status';
+
+  // ─── Notifications ───────────────────────────────────────────────
+  static const String notifications = '/notifications';
+
+  // ─── Rewards ─────────────────────────────────────────────────────
+  static const String rewardsMe = '/rewards/me';
 }
