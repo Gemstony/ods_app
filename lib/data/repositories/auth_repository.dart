@@ -123,4 +123,41 @@ class AuthRepository {
     }
     return data;
   }
+
+  // ─── Register Distributor ─────────────────────────────────
+  /// POST /auth/register/distributor
+  ///
+  /// Self-service registration. The created account is `pending` — the
+  /// user cannot log in until an administrator approves it. The returned
+  /// [AuthUser] reflects this (its `status` will be `pending`).
+  ///
+  /// On failure:
+  ///   - 422 → `Failure.validation` with `fieldErrors` (duplicate email /
+  ///           phone / distributor_id, weak password, mismatched confirm)
+  ///   - 429 → `Failure.client` with the rate-limit message
+  Future<ApiResult<AuthUser>> registerDistributor({
+    required String name,
+    required String distributorId,
+    required String email,
+    required String phone,
+    required String password,
+    required String passwordConfirmation,
+  }) {
+    return ApiResult.guard(() async {
+      final response = await _dio.post<Map<String, dynamic>>(
+        ApiEndpoints.registerDistributor,
+        data: {
+          'name': name,
+          'distributor_id': distributorId,
+          'email': email,
+          'phone': phone,
+          'password': password,
+          'password_confirmation': passwordConfirmation,
+        },
+      );
+
+      final data = _extractData(response);
+      return AuthUser.fromJson(data);
+    });
+  }
 }

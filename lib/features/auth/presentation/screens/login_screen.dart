@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:ods_app/core/routing/route_names.dart';
 
 import '../../../../core/config/app_config.dart';
 import '../../../../core/errors/failure.dart';
@@ -222,6 +223,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                   ],
                 ),
+              ),
+
+              const SizedBox(height: AppSpacing.md),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    "Don't have an account?",
+                    style: text.bodyMedium?.copyWith(
+                      color: AppColors.onSurfaceMuted,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _submitting
+                        ? null
+                        : () => context.go(RouteNames.register),
+                    child: const Text('Sign up'),
+                  ),
+                ],
               ),
 
               const SizedBox(height: AppSpacing.xl),

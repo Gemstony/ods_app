@@ -7,6 +7,7 @@ class RouteNames {
 
   static const String splash = '/';
   static const String login = '/login';
+  static const String register = '/register';
   static const String owner = '/owner';
   static const String manager = '/manager';
   static const String distributor = '/distributor';

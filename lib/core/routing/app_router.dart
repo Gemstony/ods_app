@@ -11,6 +11,7 @@ import '../../features/receiver/presentation/screens/receiver_dashboard_screen.d
 import '../../features/rider/presentation/screens/rider_dashboard_screen.dart';
 import 'role_guard.dart';
 import 'route_names.dart';
+import '../../features/auth/presentation/screens/register_screen.dart';
 
 class AppRouter {
   AppRouter._();
@@ -32,6 +33,10 @@ class AppRouter {
         GoRoute(
           path: RouteNames.login,
           builder: (_, __) => const LoginScreen(),
+        ),
+        GoRoute(
+          path: RouteNames.register,
+          builder: (_, __) => const RegisterScreen(),
         ),
         GoRoute(
           path: RouteNames.owner,
@@ -69,6 +74,14 @@ class AppRouter {
     );
   }
 
+  /// Auth-establishment routes — accessible while signed out, and redirect
+  /// to home while signed in. Adding `/register` here (instead of special-
+  /// casing it) keeps the whole redirect logic uniform.
+  static const Set<String> _authRoutes = {
+    RouteNames.login,
+    RouteNames.register,
+  };
+
   /// Pure redirect logic — exposed for unit tests.
   ///
   /// Rules (top to bottom):
@@ -87,7 +100,7 @@ class AppRouter {
     if (!enforceAuth) return null;
 
     final isOnSplash = location == RouteNames.splash;
-    final isOnLogin = location == RouteNames.login;
+    final isOnAuthRoute = _authRoutes.contains(location);
 
     if (isRestoring) {
       return isOnSplash ? null : RouteNames.splash;
@@ -96,10 +109,10 @@ class AppRouter {
     if (isOnSplash) return null;
 
     if (role != null) {
-      return isOnLogin ? RoleGuard.homeForRole(role) : null;
+      return isOnAuthRoute ? RoleGuard.homeForRole(role) : null;
     }
 
-    return isOnLogin ? null : RouteNames.login;
+    return isOnAuthRoute ? null : RouteNames.login;
   }
 
   static String? _redirect(BuildContext context, GoRouterState state) {
