@@ -7,8 +7,17 @@ import '../../data/repositories/payment_repository.dart';
 import '../../data/repositories/reward_repository.dart';
 import '../../data/repositories/dashboard_repository.dart';
 import '../../data/repositories/user_repository.dart';
+import '../../data/repositories/settings_repository.dart';
+import '../../data/repositories/pricing_config_repository.dart';
 
-// ... existing providers ...
+
+final settingsRepositoryProvider = Provider<SettingsRepository>(
+  (ref) => SettingsRepository(),
+);
+
+final pricingConfigRepositoryProvider = Provider<PricingConfigRepository>(
+  (ref) => PricingConfigRepository(),
+);
 
 /// Provides the app's [UserRepository].
 final userRepositoryProvider = Provider<UserRepository>(

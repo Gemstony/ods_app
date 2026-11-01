@@ -33,7 +33,7 @@ class Setting {
 
   factory Setting.fromJson(Map<String, dynamic> json) {
     return Setting(
-      id: jh.asInt(json['id']),
+      id: jh.asInt(json['id'] ?? 0),
       key: json['key'] as String,
       value: json['value'],
       category: json['category'] as String,

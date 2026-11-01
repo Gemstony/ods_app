@@ -139,6 +139,30 @@ class PricingConfig {
         'updated_at': updatedAt?.toIso8601String(),
       };
 
+  /// Fields sent to `PUT /owner/pricing-config`.
+  ///
+  /// Excludes `id`, `created_at`, `updated_at`, `updated_by` — those
+  /// are server-managed and not editable via the API.
+  Map<String, dynamic> toUpdatePayload() => {
+        'local_rate_per_km': localRatePerKm,
+        'local_minimum_fee': localMinimumFee,
+        'local_rounding_increment': localRoundingIncrement,
+        'regional_base_fee': regionalBaseFee,
+        'regional_minimum_fee': regionalMinimumFee,
+        'regional_rounding_increment': regionalRoundingIncrement,
+        'rider_baseline_percent': riderBaselinePercent,
+        'rider_bonus_percent': riderBonusPercent,
+        'dispatcher_compensation_model':
+            dispatcherCompensationModel.toBackendString(),
+        'dispatcher_flat_fee': dispatcherFlatFee,
+        'dispatcher_shift_allowance': dispatcherShiftAllowance,
+        'dispatcher_percent': dispatcherPercent,
+        'reward_tier1_threshold': rewardTier1Threshold,
+        'reward_tier1_discount_percent': rewardTier1DiscountPercent,
+        'reward_tier2_threshold': rewardTier2Threshold,
+        'reward_rolling_window_days': rewardRollingWindowDays,
+      };
+
   // ─── Helpers ─────────────────────────────────────────────
   /// What percentage the rider keeps of the delivery fee (80 by default).
   double get riderEarningPercent => riderBaselinePercent;

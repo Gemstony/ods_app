@@ -24,6 +24,7 @@ class ApiEndpoints {
   static const String ownerBranches = '/owner/branches';
   static const String ownerUsers = '/owner/users';
   static const String ownerSettings = '/owner/settings';
+  static const String ownerPricingConfig = '/owner/pricing-config';
 
   // ─── Manager (populated in Phase 6) ──────────────────────────────
   static const String managerStaff = '/manager/staff';

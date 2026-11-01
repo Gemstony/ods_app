@@ -6,6 +6,7 @@ import 'branch_form_screen.dart';
 import 'owner_branches_tab.dart';
 import 'owner_home_tab.dart';
 import 'owner_users_tab.dart';
+import 'owner_settings_tab.dart';
 
 class OwnerDashboardScreen extends StatelessWidget {
   const OwnerDashboardScreen({super.key});
@@ -52,11 +53,7 @@ class OwnerDashboardScreen extends StatelessWidget {
         const RoleDashboardTab(
           label: 'Settings',
           icon: Icons.settings_rounded,
-          body: ComingSoonTab(
-            title: 'Configuration',
-            phase: '5',
-            icon: Icons.settings_rounded,
-          ),
+          body: OwnerSettingsTab(),
         ),
       ],
     );
