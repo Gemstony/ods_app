@@ -82,7 +82,6 @@ class AppButton extends StatelessWidget {
   }
 
   // ─── Content ─────────────────────────────────────────────────────
-
   Widget _buildChild(BuildContext context) {
     if (isLoading) {
       final spinnerColor = switch (variant) {
@@ -100,14 +99,34 @@ class AppButton extends StatelessWidget {
       );
     }
 
-    if (icon == null) return Text(label);
+    // Text-only: still ellipsize so very long labels in narrow buttons
+    // don't clip or force the button wider than its parent.
+    if (icon == null) {
+      return Text(
+        label,
+        textAlign: TextAlign.center,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      );
+    }
 
+    // Icon + label: use Flexible so the text can shrink and ellipsize
+    // rather than forcing the Row wider than the parent constraint
+    // (which happens when the caller wraps AppButton in a fixed-width
+    // container like `SizedBox(width: 200, child: AppButton(...))`).
     return Row(
       mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Icon(icon, size: _iconSize),
         const SizedBox(width: AppSpacing.xs),
-        Text(label),
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
       ],
     );
   }

@@ -5,6 +5,7 @@ import '../../core/network/api_endpoints.dart';
 import '../../core/network/api_result.dart';
 import '../models/branch.dart';
 import '../models/branch_input.dart';
+import '../models/branch_manager_assignment.dart';
 
 /// Talks to every `/api/v1/owner/branches*` endpoint.
 ///
@@ -78,6 +79,61 @@ class BranchRepository {
 
       final data = _extractData(response);
       return Branch.fromJson(data);
+    });
+  }
+
+    // ─── Manager history ──────────────────────────────────────
+  /// GET /owner/branches/{id}/managers
+  ///
+  /// Returns the full assignment history (active + past), newest first.
+  Future<ApiResult<List<BranchManagerAssignment>>> getManagerHistory(
+    int branchId,
+  ) {
+    return ApiResult.guard(() async {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '${ApiEndpoints.ownerBranches}/$branchId/managers',
+      );
+
+      final body = response.data;
+      if (body == null) throw StateError('Empty response body');
+      final data = body['data'];
+      if (data is! List) {
+        throw StateError('Unexpected envelope shape: $body');
+      }
+
+      return data
+          .whereType<Map>()
+          .map((j) =>
+              BranchManagerAssignment.fromJson(Map<String, dynamic>.from(j)))
+          .toList(growable: false);
+    });
+  }
+
+  // ─── Assign manager ───────────────────────────────────────
+  /// POST /owner/branches/{id}/assign-manager
+  Future<ApiResult<Branch>> assignManager({
+    required int branchId,
+    required int userId,
+  }) {
+    return ApiResult.guard(() async {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '${ApiEndpoints.ownerBranches}/$branchId/assign-manager',
+        data: {'user_id': userId},
+      );
+
+      return Branch.fromJson(_extractData(response));
+    });
+  }
+
+  // ─── Unassign manager ─────────────────────────────────────
+  /// DELETE /owner/branches/{id}/assign-manager
+  Future<ApiResult<Branch>> unassignManager(int branchId) {
+    return ApiResult.guard(() async {
+      final response = await _dio.delete<Map<String, dynamic>>(
+        '${ApiEndpoints.ownerBranches}/$branchId/assign-manager',
+      );
+
+      return Branch.fromJson(_extractData(response));
     });
   }
 

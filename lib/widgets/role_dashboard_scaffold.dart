@@ -8,11 +8,13 @@ class RoleDashboardTab {
   final String label;
   final IconData icon;
   final Widget body;
+  final Widget? floatingActionButton;
 
   const RoleDashboardTab({
     required this.label,
     required this.icon,
     required this.body,
+    this.floatingActionButton,
   });
 }
 
@@ -68,6 +70,7 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
         index: _index,
         children: [for (final tab in widget.tabs) tab.body],
       ),
+      
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: _onTabSelected,

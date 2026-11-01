@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../../widgets/coming_soon_tab.dart';
 import '../../../../widgets/role_dashboard_scaffold.dart';
+import 'branch_form_screen.dart';
+import 'owner_branches_tab.dart';
 import 'owner_home_tab.dart';
 
 class OwnerDashboardScreen extends StatelessWidget {
@@ -11,8 +13,8 @@ class OwnerDashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return RoleDashboardScaffold(
       title: 'Owner',
-      tabs: const [
-        RoleDashboardTab(
+      tabs: [
+        const RoleDashboardTab(
           label: 'Home',
           icon: Icons.dashboard_rounded,
           body: OwnerHomeTab(),
@@ -20,13 +22,19 @@ class OwnerDashboardScreen extends StatelessWidget {
         RoleDashboardTab(
           label: 'Branches',
           icon: Icons.store_rounded,
-          body: ComingSoonTab(
-            title: 'Branch management',
-            phase: '5',
-            icon: Icons.store_rounded,
+          body: const OwnerBranchesTab(),
+          floatingActionButton: Builder(
+            builder: (fabContext) => FloatingActionButton(
+              onPressed: () => Navigator.of(fabContext).push(
+                MaterialPageRoute(
+                  builder: (_) => const BranchFormScreen(),
+                ),
+              ),
+              child: const Icon(Icons.add),
+            ),
           ),
         ),
-        RoleDashboardTab(
+        const RoleDashboardTab(
           label: 'Users',
           icon: Icons.people_rounded,
           body: ComingSoonTab(
@@ -35,7 +43,7 @@ class OwnerDashboardScreen extends StatelessWidget {
             icon: Icons.people_rounded,
           ),
         ),
-        RoleDashboardTab(
+        const RoleDashboardTab(
           label: 'Finance',
           icon: Icons.account_balance_wallet_rounded,
           body: ComingSoonTab(
@@ -44,7 +52,7 @@ class OwnerDashboardScreen extends StatelessWidget {
             icon: Icons.account_balance_wallet_rounded,
           ),
         ),
-        RoleDashboardTab(
+        const RoleDashboardTab(
           label: 'Settings',
           icon: Icons.settings_rounded,
           body: ComingSoonTab(

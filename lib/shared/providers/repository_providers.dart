@@ -6,6 +6,15 @@ import '../../data/repositories/notification_repository.dart';
 import '../../data/repositories/payment_repository.dart';
 import '../../data/repositories/reward_repository.dart';
 import '../../data/repositories/dashboard_repository.dart';
+import '../../data/repositories/user_repository.dart';
+
+// ... existing providers ...
+
+/// Provides the app's [UserRepository].
+final userRepositoryProvider = Provider<UserRepository>(
+  (ref) => UserRepository(),
+);
+
 
 /// Provides the app's [BranchRepository].
 ///
