@@ -9,7 +9,12 @@ import '../../data/repositories/dashboard_repository.dart';
 import '../../data/repositories/user_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/pricing_config_repository.dart';
+import '../../data/repositories/finance_repository.dart';
 
+
+final financeRepositoryProvider = Provider<FinanceRepository>(
+  (ref) => FinanceRepository(),
+);
 
 final settingsRepositoryProvider = Provider<SettingsRepository>(
   (ref) => SettingsRepository(),

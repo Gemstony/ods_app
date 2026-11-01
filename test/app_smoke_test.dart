@@ -18,6 +18,8 @@ import 'package:ods_app/data/repositories/dashboard_repository.dart';
 import 'package:ods_app/shared/providers/repository_providers.dart';
 import 'package:ods_app/data/models/auth/auth_user.dart';
 import 'package:ods_app/data/repositories/user_repository.dart';
+import 'package:ods_app/data/models/finance_summary.dart';
+import 'package:ods_app/data/repositories/finance_repository.dart';
 
 // ─────────────────────────────────────────────────────────────────────
 // Helpers
@@ -32,10 +34,18 @@ import 'package:ods_app/data/repositories/user_repository.dart';
 Future<void> _pumpApp(WidgetTester tester) async {
   AppConfig.initialize();
   await tester.pumpWidget(
-    OdsApp(
-      overrides: [
-        secureStorageProvider.overrideWithValue(InMemorySecureStorage()),
-      ],
+    // KeyedSubtree with a UniqueKey forces Flutter to build a fresh
+    // widget tree on every pumpWidget. Without it, Riverpod's
+    // ProviderScope can be reused across tests (or across consecutive
+    // pumps in the same test), and asserts because the override count
+    // between the two configurations differs.
+    KeyedSubtree(
+      key: UniqueKey(),
+      child: OdsApp(
+        overrides: [
+          secureStorageProvider.overrideWithValue(InMemorySecureStorage()),
+        ],
+      ),
     ),
   );
 }
@@ -88,6 +98,14 @@ class _FakeUserRepository extends UserRepository {
       const ApiSuccess<List<AuthUser>>([]);
 }
 
+class _FakeFinanceRepository extends FinanceRepository {
+  _FakeFinanceRepository() : super(dio: Dio());
+
+  @override
+  Future<ApiResult<FinanceSummary>> getSummary() async =>
+      ApiSuccess(FinanceSummary.empty());
+}
+
 /// Minimal fake: returns an empty `DashboardKpis` immediately, so the
 /// signed-in Owner's dashboard doesn't attempt a real network call.
 class _FakeDashboardRepository extends DashboardRepository {
@@ -108,27 +126,22 @@ Future<void> _bootToSignedInOwner(WidgetTester tester) async {
   await storage.write('ods.auth.refresh_token', 'fake-refresh');
 
   await tester.pumpWidget(
-    OdsApp(
-      overrides: [
-        secureStorageProvider.overrideWithValue(storage),
-        authRepositoryProvider.overrideWithValue(_SignedInAuthRepository()),
-        // Prevent the OwnerHomeTab from making a real network call.
-        dashboardRepositoryProvider
-            .overrideWithValue(_FakeDashboardRepository()),
-      ],
-    ),
-  );
-
-  await tester.pumpWidget(
-    OdsApp(
-      overrides: [
-        secureStorageProvider.overrideWithValue(storage),
-        authRepositoryProvider.overrideWithValue(_SignedInAuthRepository()),
-        dashboardRepositoryProvider
-            .overrideWithValue(_FakeDashboardRepository()),
-        // Users tab builds eagerly via IndexedStack
-        userRepositoryProvider.overrideWithValue(_FakeUserRepository()),
-      ],
+    // Same KeyedSubtree pattern as _pumpApp — guarantees a fresh tree
+    // and a fresh ProviderScope, so the override count change from
+    // 1 (signed-out tests) to 5 (this helper) doesn't trip Riverpod's
+    // "can't change number of overrides" assertion.
+    KeyedSubtree(
+      key: UniqueKey(),
+      child: OdsApp(
+        overrides: [
+          secureStorageProvider.overrideWithValue(storage),
+          authRepositoryProvider.overrideWithValue(_SignedInAuthRepository()),
+          dashboardRepositoryProvider
+              .overrideWithValue(_FakeDashboardRepository()),
+          userRepositoryProvider.overrideWithValue(_FakeUserRepository()),
+          financeRepositoryProvider.overrideWithValue(_FakeFinanceRepository()),
+        ],
+      ),
     ),
   );
 

@@ -7,6 +7,7 @@ import 'owner_branches_tab.dart';
 import 'owner_home_tab.dart';
 import 'owner_users_tab.dart';
 import 'owner_settings_tab.dart';
+import 'owner_finance_tab.dart';
 
 class OwnerDashboardScreen extends StatelessWidget {
   const OwnerDashboardScreen({super.key});
@@ -44,11 +45,7 @@ class OwnerDashboardScreen extends StatelessWidget {
         const RoleDashboardTab(
           label: 'Finance',
           icon: Icons.account_balance_wallet_rounded,
-          body: ComingSoonTab(
-            title: 'Financial oversight',
-            phase: '11',
-            icon: Icons.account_balance_wallet_rounded,
-          ),
+          body: OwnerFinanceTab(),
         ),
         const RoleDashboardTab(
           label: 'Settings',
