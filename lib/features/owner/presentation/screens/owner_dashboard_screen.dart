@@ -5,6 +5,7 @@ import '../../../../widgets/role_dashboard_scaffold.dart';
 import 'branch_form_screen.dart';
 import 'owner_branches_tab.dart';
 import 'owner_home_tab.dart';
+import 'owner_users_tab.dart';
 
 class OwnerDashboardScreen extends StatelessWidget {
   const OwnerDashboardScreen({super.key});
@@ -37,11 +38,7 @@ class OwnerDashboardScreen extends StatelessWidget {
         const RoleDashboardTab(
           label: 'Users',
           icon: Icons.people_rounded,
-          body: ComingSoonTab(
-            title: 'User management',
-            phase: '5',
-            icon: Icons.people_rounded,
-          ),
+          body: OwnerUsersTab(),
         ),
         const RoleDashboardTab(
           label: 'Finance',

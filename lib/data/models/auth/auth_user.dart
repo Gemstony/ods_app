@@ -16,6 +16,7 @@ class AuthUser {
   final String status;
 
   final int? branchId;
+  final UserBranchRef? branch;
   final String? distributorId;
   final bool dispatcherEnabled;
   final DateTime? emailVerifiedAt;
@@ -44,6 +45,7 @@ class AuthUser {
     required this.dispatcherEnabled,
     required this.permissions,
     this.branchId,
+    this.branch,
     this.distributorId,
     this.emailVerifiedAt,
     this.createdAt,
@@ -84,16 +86,19 @@ class AuthUser {
       vehicleColor: json['vehicle_color'] as String?,
       vehicleOwnership: json['vehicle_ownership'] as String?,
       plateNumber: json['plate_number'] as String?,
+      branch: json['branch'] is Map<String, dynamic>
+          ? UserBranchRef.fromJson(json['branch'] as Map<String, dynamic>)
+          : null,
     );
   }
 
   // ─── Convenience helpers (used by 3.3–3.5) ────────────────
-  bool get isOwner       => role == 'owner';
-  bool get isManager     => role == 'manager';
+  bool get isOwner => role == 'owner';
+  bool get isManager => role == 'manager';
   bool get isDistributor => role == 'distributor';
-  bool get isRider       => role == 'rider';
-  bool get isReceiver    => role == 'receiver';
-  bool get isActive      => status == 'active';
+  bool get isRider => role == 'rider';
+  bool get isReceiver => role == 'receiver';
+  bool get isActive => status == 'active';
 
   bool hasPermission(String name) => permissions.contains(name);
 
@@ -103,4 +108,32 @@ class AuthUser {
       v is bool ? v : (v == 1 || v == '1' || v == 'true');
   static DateTime? _parseDate(dynamic v) =>
       v == null ? null : DateTime.tryParse(v.toString());
+}
+
+/// Minimal branch reference embedded in user responses.
+///
+/// The backend's `UserResource` includes a nested `branch` object when
+/// the relation is eager-loaded (which `UserController::index` does).
+/// `AuthUser.branch` holds this so lists can show "Kariakoo Branch"
+/// without a second fetch per user.
+class UserBranchRef {
+  final int id;
+  final String name;
+  final String code;
+
+  const UserBranchRef({
+    required this.id,
+    required this.name,
+    required this.code,
+  });
+
+  factory UserBranchRef.fromJson(Map<String, dynamic> json) {
+    return UserBranchRef(
+      id: json['id'] is int
+          ? json['id'] as int
+          : int.parse(json['id'].toString()),
+      name: json['name'] as String,
+      code: json['code'] as String,
+    );
+  }
 }

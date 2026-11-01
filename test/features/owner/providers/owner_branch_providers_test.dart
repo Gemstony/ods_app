@@ -9,7 +9,7 @@ import 'package:ods_app/data/models/branch.dart';
 import 'package:ods_app/data/models/branch_manager_assignment.dart';
 import 'package:ods_app/data/repositories/branch_repository.dart';
 import 'package:ods_app/data/repositories/user_repository.dart';
-import 'package:ods_app/features/owner/presentation/screens/owner_branch_providers.dart';
+import 'package:ods_app/features/owner/presentation/providers/owner_branch_providers.dart';
 import 'package:ods_app/shared/providers/repository_providers.dart';
 
 Branch _branch(int id, {BranchStatus status = BranchStatus.active}) => Branch(

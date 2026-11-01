@@ -16,6 +16,8 @@ import 'package:ods_app/core/network/api_result.dart';
 import 'package:ods_app/data/models/dashboard_kpis.dart';
 import 'package:ods_app/data/repositories/dashboard_repository.dart';
 import 'package:ods_app/shared/providers/repository_providers.dart';
+import 'package:ods_app/data/models/auth/auth_user.dart';
+import 'package:ods_app/data/repositories/user_repository.dart';
 
 // ─────────────────────────────────────────────────────────────────────
 // Helpers
@@ -69,6 +71,23 @@ class _SignedInAuthRepository extends AuthRepository {
       );
 }
 
+/// Prevents the Owner dashboard's Users tab from calling the real
+/// `/owner/users` endpoint during smoke tests. Returns an empty list.
+class _FakeUserRepository extends UserRepository {
+  _FakeUserRepository() : super(dio: Dio());
+
+  @override
+  Future<ApiResult<List<AuthUser>>> list({
+    String? role,
+    String? status,
+    int? branchId,
+    String? search,
+    int? perPage,
+    int page = 1,
+  }) async =>
+      const ApiSuccess<List<AuthUser>>([]);
+}
+
 /// Minimal fake: returns an empty `DashboardKpis` immediately, so the
 /// signed-in Owner's dashboard doesn't attempt a real network call.
 class _FakeDashboardRepository extends DashboardRepository {
@@ -96,6 +115,19 @@ Future<void> _bootToSignedInOwner(WidgetTester tester) async {
         // Prevent the OwnerHomeTab from making a real network call.
         dashboardRepositoryProvider
             .overrideWithValue(_FakeDashboardRepository()),
+      ],
+    ),
+  );
+
+  await tester.pumpWidget(
+    OdsApp(
+      overrides: [
+        secureStorageProvider.overrideWithValue(storage),
+        authRepositoryProvider.overrideWithValue(_SignedInAuthRepository()),
+        dashboardRepositoryProvider
+            .overrideWithValue(_FakeDashboardRepository()),
+        // Users tab builds eagerly via IndexedStack
+        userRepositoryProvider.overrideWithValue(_FakeUserRepository()),
       ],
     ),
   );

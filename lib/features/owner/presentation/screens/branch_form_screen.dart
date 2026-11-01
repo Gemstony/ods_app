@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:ods_app/features/owner/presentation/screens/owner_branch_providers.dart';
+import 'package:ods_app/features/owner/presentation/providers/owner_branch_providers.dart';
 
 import '../../../../core/errors/failure.dart';
 import '../../../../core/theme/app_colors.dart';
