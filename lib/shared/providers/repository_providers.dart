@@ -5,6 +5,7 @@ import '../../data/repositories/delivery_repository.dart';
 import '../../data/repositories/notification_repository.dart';
 import '../../data/repositories/payment_repository.dart';
 import '../../data/repositories/reward_repository.dart';
+import '../../data/repositories/dashboard_repository.dart';
 
 /// Provides the app's [BranchRepository].
 ///
@@ -32,4 +33,9 @@ final notificationRepositoryProvider = Provider<NotificationRepository>(
 /// Provides the app's [RewardRepository].
 final rewardRepositoryProvider = Provider<RewardRepository>(
   (ref) => RewardRepository(),
+);
+
+/// Provides the app's [DashboardRepository].
+final dashboardRepositoryProvider = Provider<DashboardRepository>(
+  (ref) => DashboardRepository(),
 );

@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +12,10 @@ import 'package:ods_app/features/auth/presentation/screens/login_screen.dart';
 import 'package:ods_app/features/auth/presentation/screens/splash_screen.dart';
 import 'package:ods_app/features/owner/presentation/screens/owner_dashboard_screen.dart';
 import 'package:ods_app/shared/providers/auth_provider.dart';
+import 'package:ods_app/core/network/api_result.dart';
+import 'package:ods_app/data/models/dashboard_kpis.dart';
+import 'package:ods_app/data/repositories/dashboard_repository.dart';
+import 'package:ods_app/shared/providers/repository_providers.dart';
 
 // ─────────────────────────────────────────────────────────────────────
 // Helpers
@@ -64,6 +69,16 @@ class _SignedInAuthRepository extends AuthRepository {
       );
 }
 
+/// Minimal fake: returns an empty `DashboardKpis` immediately, so the
+/// signed-in Owner's dashboard doesn't attempt a real network call.
+class _FakeDashboardRepository extends DashboardRepository {
+  _FakeDashboardRepository() : super(dio: Dio());
+
+  @override
+  Future<ApiResult<DashboardKpis>> getKpis() async =>
+      ApiSuccess(DashboardKpis.empty());
+}
+
 /// Boots the app with pre-populated tokens and a fake `/me`, so the
 /// splash's session-restore path succeeds and lands on the Owner dashboard.
 Future<void> _bootToSignedInOwner(WidgetTester tester) async {
@@ -78,6 +93,9 @@ Future<void> _bootToSignedInOwner(WidgetTester tester) async {
       overrides: [
         secureStorageProvider.overrideWithValue(storage),
         authRepositoryProvider.overrideWithValue(_SignedInAuthRepository()),
+        // Prevent the OwnerHomeTab from making a real network call.
+        dashboardRepositoryProvider
+            .overrideWithValue(_FakeDashboardRepository()),
       ],
     ),
   );
@@ -87,7 +105,6 @@ Future<void> _bootToSignedInOwner(WidgetTester tester) async {
   await tester.pumpAndSettle();
   expect(find.byType(OwnerDashboardScreen), findsOneWidget);
 }
-
 // ─────────────────────────────────────────────────────────────────────
 // Tests
 // ─────────────────────────────────────────────────────────────────────
@@ -149,8 +166,7 @@ void main() {
   });
 
   // ─── Unknown route — signed in ───────────────────────────────────
-  testWidgets(
-      'unknown route while signed in falls through to errorBuilder',
+  testWidgets('unknown route while signed in falls through to errorBuilder',
       (tester) async {
     await _bootToSignedInOwner(tester);
 

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../../../../widgets/coming_soon_tab.dart';
-import '../../../../../widgets/role_dashboard_scaffold.dart';
+import '../../../../widgets/coming_soon_tab.dart';
+import '../../../../widgets/role_dashboard_scaffold.dart';
+import 'owner_home_tab.dart';
 
 class OwnerDashboardScreen extends StatelessWidget {
   const OwnerDashboardScreen({super.key});
@@ -14,11 +15,7 @@ class OwnerDashboardScreen extends StatelessWidget {
         RoleDashboardTab(
           label: 'Home',
           icon: Icons.dashboard_rounded,
-          body: ComingSoonTab(
-            title: 'Owner dashboard',
-            phase: '5',
-            icon: Icons.dashboard_rounded,
-          ),
+          body: OwnerHomeTab(),
         ),
         RoleDashboardTab(
           label: 'Branches',
