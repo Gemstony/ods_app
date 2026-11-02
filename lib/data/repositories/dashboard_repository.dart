@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:ods_app/data/models/manager_dashboard_kpis.dart';
 
 import '../../core/network/api_client.dart';
 import '../../core/network/api_result.dart';
@@ -28,6 +29,24 @@ class DashboardRepository {
       }
 
       return DashboardKpis.fromJson(data);
+    });
+  }
+
+  /// GET /manager/dashboard
+  Future<ApiResult<ManagerDashboardKpis>> getManagerKpis() {
+    return ApiResult.guard(() async {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/manager/dashboard',
+      );
+
+      final body = response.data;
+      if (body == null) throw StateError('Empty response body');
+      final data = body['data'];
+      if (data is! Map<String, dynamic>) {
+        throw StateError('Unexpected envelope shape: $body');
+      }
+
+      return ManagerDashboardKpis.fromJson(data);
     });
   }
 }

@@ -9,6 +9,27 @@ import 'package:ods_app/features/manager/presentation/screens/manager_dashboard_
 import 'package:ods_app/features/owner/presentation/screens/owner_dashboard_screen.dart';
 import 'package:ods_app/features/receiver/presentation/screens/receiver_dashboard_screen.dart';
 import 'package:ods_app/features/rider/presentation/screens/rider_dashboard_screen.dart';
+import 'package:dio/dio.dart';
+import 'package:ods_app/core/network/api_result.dart';
+import 'package:ods_app/data/models/dashboard_kpis.dart';
+import 'package:ods_app/data/models/manager_dashboard_kpis.dart';
+import 'package:ods_app/data/repositories/dashboard_repository.dart';
+import 'package:ods_app/shared/providers/repository_providers.dart';
+
+/// Dashboard repository fake: returns empty data without any network
+/// call. Prevents the Owner / Manager home tabs from attempting real
+/// fetches during dashboard tab-structure tests.
+class _FakeDashboardRepo extends DashboardRepository {
+  _FakeDashboardRepo() : super(dio: Dio());
+
+  @override
+  Future<ApiResult<DashboardKpis>> getKpis() async =>
+      ApiSuccess(DashboardKpis.empty());
+
+  @override
+  Future<ApiResult<ManagerDashboardKpis>> getManagerKpis() async =>
+      ApiSuccess(ManagerDashboardKpis.empty());
+}
 
 /// Minimal router that renders [dashboard] directly at /dashboard, and a
 /// stub at /login so the dashboard's AppBar logout action (which calls
@@ -26,6 +47,9 @@ Widget _wrapDashboard(Widget dashboard) {
   );
 
   return ProviderScope(
+    overrides: [
+      dashboardRepositoryProvider.overrideWithValue(_FakeDashboardRepo()),
+    ],
     child: MaterialApp.router(
       theme: AppTheme.light,
       routerConfig: router,
@@ -57,7 +81,13 @@ void main() {
     await _pumpDashboard(tester, const ManagerDashboardScreen());
     final navBar = tester.widget<NavigationBar>(find.byType(NavigationBar));
     expect(navBar.destinations.length, 5);
-    for (final label in ['Home', 'Staff', 'Deliveries', 'Packages', 'Profile']) {
+    for (final label in [
+      'Home',
+      'Staff',
+      'Deliveries',
+      'Packages',
+      'Profile'
+    ]) {
       expect(find.text(label), findsWidgets);
     }
   });

@@ -1,24 +1,21 @@
 import 'package:flutter/material.dart';
 
-import '../../../../../widgets/coming_soon_tab.dart';
-import '../../../../../widgets/role_dashboard_scaffold.dart';
+import '../../../../widgets/coming_soon_tab.dart';
+import '../../../../widgets/role_dashboard_scaffold.dart';
+import 'manager_home_tab.dart';
 
 class ManagerDashboardScreen extends StatelessWidget {
   const ManagerDashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return RoleDashboardScaffold(
+    return  RoleDashboardScaffold(
       title: 'Manager',
       tabs: const [
         RoleDashboardTab(
           label: 'Home',
           icon: Icons.dashboard_rounded,
-          body: ComingSoonTab(
-            title: 'Manager dashboard',
-            phase: '6',
-            icon: Icons.dashboard_rounded,
-          ),
+          body: ManagerHomeTab(),
         ),
         RoleDashboardTab(
           label: 'Staff',

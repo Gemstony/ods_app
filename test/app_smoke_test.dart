@@ -20,6 +20,8 @@ import 'package:ods_app/data/models/auth/auth_user.dart';
 import 'package:ods_app/data/repositories/user_repository.dart';
 import 'package:ods_app/data/models/finance_summary.dart';
 import 'package:ods_app/data/repositories/finance_repository.dart';
+import 'package:ods_app/data/models/manager_dashboard_kpis.dart';
+
 
 // ─────────────────────────────────────────────────────────────────────
 // Helpers
@@ -114,6 +116,10 @@ class _FakeDashboardRepository extends DashboardRepository {
   @override
   Future<ApiResult<DashboardKpis>> getKpis() async =>
       ApiSuccess(DashboardKpis.empty());
+
+  @override
+  Future<ApiResult<ManagerDashboardKpis>> getManagerKpis() async =>
+      ApiSuccess(ManagerDashboardKpis.empty());
 }
 
 /// Boots the app with pre-populated tokens and a fake `/me`, so the
