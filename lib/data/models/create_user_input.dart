@@ -4,21 +4,21 @@
 /// omitted from the JSON. Backend FormRequest validates role-specific
 /// requirements.
 class CreateUserInput {
-  final String role;          // 'manager' | 'receiver' | 'rider'
+  final String role; // 'manager' | 'receiver' | 'rider'
   final String name;
   final String email;
   final String phone;
   final String password;
   final String passwordConfirmation;
-  final int branchId;
+  final int? branchId;
 
   // Receiver-only
   final bool? dispatcherEnabled;
 
   // Rider-only
   final String? nida;
-  final String? sex;              // 'male' | 'female' | 'other'
-  final String? dateOfBirth;      // 'YYYY-MM-DD'
+  final String? sex; // 'male' | 'female' | 'other'
+  final String? dateOfBirth; // 'YYYY-MM-DD'
   final String? vehicleType;
   final String? vehicleColor;
   final String? vehicleOwnership; // 'owned' | 'rented' | 'company'
@@ -31,7 +31,7 @@ class CreateUserInput {
     required this.phone,
     required this.password,
     required this.passwordConfirmation,
-    required this.branchId,
+    this.branchId,
     this.dispatcherEnabled,
     this.nida,
     this.sex,
@@ -50,7 +50,7 @@ class CreateUserInput {
       'phone': phone,
       'password': password,
       'password_confirmation': passwordConfirmation,
-      'branch_id': branchId,
+      if (branchId != null) 'branch_id': branchId,
       if (role == 'receiver' && dispatcherEnabled != null)
         'dispatcher_enabled': dispatcherEnabled,
       if (role == 'rider') ...{

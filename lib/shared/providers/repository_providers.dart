@@ -10,7 +10,13 @@ import '../../data/repositories/user_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/pricing_config_repository.dart';
 import '../../data/repositories/finance_repository.dart';
+import '../../data/repositories/staff_repository.dart';
 
+
+/// Provides the app's [StaffRepository] (Manager-facing staff management).
+final staffRepositoryProvider = Provider<StaffRepository>(
+  (ref) => StaffRepository(),
+);
 
 final financeRepositoryProvider = Provider<FinanceRepository>(
   (ref) => FinanceRepository(),

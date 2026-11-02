@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ods_app/core/config/app_config.dart';
 import 'package:ods_app/core/theme/app_theme.dart';
+import 'package:ods_app/data/models/auth/auth_user.dart';
 import 'package:ods_app/features/distributor/presentation/screens/distributor_dashboard_screen.dart';
 import 'package:ods_app/features/manager/presentation/screens/manager_dashboard_screen.dart';
 import 'package:ods_app/features/owner/presentation/screens/owner_dashboard_screen.dart';
@@ -15,6 +16,10 @@ import 'package:ods_app/data/models/dashboard_kpis.dart';
 import 'package:ods_app/data/models/manager_dashboard_kpis.dart';
 import 'package:ods_app/data/repositories/dashboard_repository.dart';
 import 'package:ods_app/shared/providers/repository_providers.dart';
+import 'package:ods_app/data/repositories/staff_repository.dart';
+
+
+
 
 /// Dashboard repository fake: returns empty data without any network
 /// call. Prevents the Owner / Manager home tabs from attempting real
@@ -29,6 +34,20 @@ class _FakeDashboardRepo extends DashboardRepository {
   @override
   Future<ApiResult<ManagerDashboardKpis>> getManagerKpis() async =>
       ApiSuccess(ManagerDashboardKpis.empty());
+}
+
+class _FakeStaffRepo extends StaffRepository {
+  _FakeStaffRepo() : super(dio: Dio());
+
+  @override
+  Future<ApiResult<List<AuthUser>>> list({
+    String? role,
+    String? status,
+    String? search,
+    int? perPage,
+    int page = 1,
+  }) async =>
+      const ApiSuccess<List<AuthUser>>([]);
 }
 
 /// Minimal router that renders [dashboard] directly at /dashboard, and a
@@ -46,9 +65,10 @@ Widget _wrapDashboard(Widget dashboard) {
     ],
   );
 
-  return ProviderScope(
+   return ProviderScope(
     overrides: [
       dashboardRepositoryProvider.overrideWithValue(_FakeDashboardRepo()),
+      staffRepositoryProvider.overrideWithValue(_FakeStaffRepo()),
     ],
     child: MaterialApp.router(
       theme: AppTheme.light,

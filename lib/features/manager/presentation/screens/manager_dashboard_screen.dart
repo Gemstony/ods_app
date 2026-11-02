@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../widgets/coming_soon_tab.dart';
 import '../../../../widgets/role_dashboard_scaffold.dart';
 import 'manager_home_tab.dart';
+import 'manager_staff_tab.dart';
 
 class ManagerDashboardScreen extends StatelessWidget {
   const ManagerDashboardScreen({super.key});
@@ -20,11 +21,7 @@ class ManagerDashboardScreen extends StatelessWidget {
         RoleDashboardTab(
           label: 'Staff',
           icon: Icons.badge_rounded,
-          body: ComingSoonTab(
-            title: 'Staff management',
-            phase: '6',
-            icon: Icons.badge_rounded,
-          ),
+          body: const ManagerStaffTab(),
         ),
         RoleDashboardTab(
           label: 'Deliveries',
