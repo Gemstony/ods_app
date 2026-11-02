@@ -100,22 +100,29 @@ class DeliveryRepository {
 
   /// GET /manager/deliveries
   ///
-  /// Branch-scoped by the backend's branch middleware. Returns all
-  /// deliveries associated with the manager's branch.
+  /// Branch-scoped by the backend's `role:manager` middleware. Accepts
+  /// a list of statuses (backend supports comma-separated), so callers
+  /// can express "in transit" as `[picked_up, dispatched]` in one
+  /// round-trip. Empty/null list = no status filter.
+  ///
+  /// Uses the standard `per_page` / `page` pagination that the manager
+  /// deliveries endpoint expects (`listMine` uses `limit`/`offset`
+  /// because the distributor endpoint uses that shape).
   Future<ApiResult<List<Delivery>>> listForBranch({
-    DeliveryStatus? status,
+    List<DeliveryStatus>? statuses,
     ServiceType? serviceType,
-    int? limit,
-    int? offset,
+    int? perPage,
+    int page = 1,
   }) {
     return ApiResult.guard(() async {
       final response = await _dio.get<Map<String, dynamic>>(
         ApiEndpoints.managerDeliveries,
         queryParameters: {
-          if (status != null) 'status': status.name,
+          if (statuses != null && statuses.isNotEmpty)
+            'status': statuses.map((s) => s.name).join(','),
           if (serviceType != null) 'service_type': serviceType.name,
-          if (limit != null) 'limit': limit,
-          if (offset != null) 'offset': offset,
+          if (perPage != null) 'per_page': perPage,
+          'page': page,
         },
       );
 
@@ -124,6 +131,17 @@ class DeliveryRepository {
     });
   }
 
+  /// GET /manager/deliveries/{id}
+  ///
+  /// Branch-scoped single delivery. Returns 404 for cross-branch.
+  Future<ApiResult<Delivery>> getForBranch(int id) {
+    return ApiResult.guard(() async {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '${ApiEndpoints.managerDeliveries}/$id',
+      );
+      return Delivery.fromJson(_extractData(response));
+    });
+  }
   // ────────────────────────────────────────────────────────
   // Rider-facing (Phase 8)
   // ────────────────────────────────────────────────────────

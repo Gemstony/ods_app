@@ -349,8 +349,7 @@ void main() {
       expect(preview.busFareLabel, isNull);
     });
 
-    test('parses a regional fee preview with bus fare and discount',
-        () async {
+    test('parses a regional fee preview with bus fare and discount', () async {
       final adapter = _CapturingAdapter(
         statusCode: 200,
         body: _successEnvelope({
@@ -425,24 +424,63 @@ void main() {
   });
 
   // ─── listForBranch() ───────────────────────────────────────
-  group('DeliveryRepository.listForBranch', () {
-    test('calls /manager/deliveries', () async {
+  test('calls /manager/deliveries with statuses + pagination', () async {
+    final adapter = _CapturingAdapter(
+      statusCode: 200,
+      body: _successEnvelope({
+        'data': [_deliveryJson()],
+        'total': 1,
+        'per_page': 50,
+        'current_page': 1,
+        'last_page': 1,
+      }),
+    );
+    final repo = DeliveryRepository(dio: _dioWith(adapter));
+
+    final result = await repo.listForBranch(
+      statuses: [DeliveryStatus.paid, DeliveryStatus.picked_up],
+      perPage: 50,
+    );
+
+    expect(result, isA<ApiSuccess<List<Delivery>>>());
+    expect(adapter.lastRequest!.path, '/manager/deliveries');
+    expect(adapter.lastRequest!.queryParameters['status'], 'paid,picked_up');
+    expect(adapter.lastRequest!.queryParameters['per_page'], 50);
+    expect(adapter.lastRequest!.queryParameters['page'], 1);
+  });
+
+  group('DeliveryRepository.getForBranch', () {
+    test('calls /manager/deliveries/{id}', () async {
       final adapter = _CapturingAdapter(
         statusCode: 200,
-        body: _successEnvelope({
-          'data': [_deliveryJson()],
-        }),
+        body: _successEnvelope(_deliveryJson(id: 42)),
       );
       final repo = DeliveryRepository(dio: _dioWith(adapter));
 
-      final result = await repo.listForBranch(status: DeliveryStatus.paid);
+      final result = await repo.getForBranch(42);
 
-      expect(result, isA<ApiSuccess<List<Delivery>>>());
-      expect(adapter.lastRequest!.path, '/manager/deliveries');
-      expect(adapter.lastRequest!.queryParameters['status'], 'paid');
+      expect(result, isA<ApiSuccess<Delivery>>());
+      expect(result.dataOrNull!.id, 42);
+      expect(adapter.lastRequest!.path, '/manager/deliveries/42');
+      expect(adapter.lastRequest!.method, 'GET');
+    });
+
+    test('maps 404 to notFound', () async {
+      final adapter = _CapturingAdapter(
+        statusCode: 404,
+        body: {
+          'success': false,
+          'message': 'Delivery not found.',
+          'errors': null,
+        },
+      );
+      final repo = DeliveryRepository(dio: _dioWith(adapter));
+
+      final result = await repo.getForBranch(999);
+      expect(result, isA<ApiFailure>());
+      expect(result.failureOrNull!.type.name, 'notFound');
     });
   });
-
   // ─── listForRider() ────────────────────────────────────────
   group('DeliveryRepository.listForRider', () {
     test('calls /rider/tasks with optional status', () async {

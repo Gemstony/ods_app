@@ -4,13 +4,14 @@ import '../../../../widgets/coming_soon_tab.dart';
 import '../../../../widgets/role_dashboard_scaffold.dart';
 import 'manager_home_tab.dart';
 import 'manager_staff_tab.dart';
+import 'manager_deliveries_tab.dart';
 
 class ManagerDashboardScreen extends StatelessWidget {
   const ManagerDashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return  RoleDashboardScaffold(
+    return RoleDashboardScaffold(
       title: 'Manager',
       tabs: const [
         RoleDashboardTab(
@@ -26,11 +27,7 @@ class ManagerDashboardScreen extends StatelessWidget {
         RoleDashboardTab(
           label: 'Deliveries',
           icon: Icons.local_shipping_rounded,
-          body: ComingSoonTab(
-            title: 'Delivery oversight',
-            phase: '6',
-            icon: Icons.local_shipping_rounded,
-          ),
+          body: const ManagerDeliveriesTab(),
         ),
         RoleDashboardTab(
           label: 'Packages',

@@ -17,9 +17,8 @@ import 'package:ods_app/data/models/manager_dashboard_kpis.dart';
 import 'package:ods_app/data/repositories/dashboard_repository.dart';
 import 'package:ods_app/shared/providers/repository_providers.dart';
 import 'package:ods_app/data/repositories/staff_repository.dart';
-
-
-
+import 'package:ods_app/data/models/delivery.dart';
+import 'package:ods_app/data/repositories/delivery_repository.dart';
 
 /// Dashboard repository fake: returns empty data without any network
 /// call. Prevents the Owner / Manager home tabs from attempting real
@@ -50,6 +49,19 @@ class _FakeStaffRepo extends StaffRepository {
       const ApiSuccess<List<AuthUser>>([]);
 }
 
+class _FakeDeliveryRepo extends DeliveryRepository {
+  _FakeDeliveryRepo() : super(dio: Dio());
+
+  @override
+  Future<ApiResult<List<Delivery>>> listForBranch({
+    List<DeliveryStatus>? statuses,
+    ServiceType? serviceType,
+    int? perPage,
+    int page = 1,
+  }) async =>
+      const ApiSuccess<List<Delivery>>([]);
+}
+
 /// Minimal router that renders [dashboard] directly at /dashboard, and a
 /// stub at /login so the dashboard's AppBar logout action (which calls
 /// `context.go(RouteNames.login)`) doesn't throw during interaction tests.
@@ -65,10 +77,11 @@ Widget _wrapDashboard(Widget dashboard) {
     ],
   );
 
-   return ProviderScope(
+  return ProviderScope(
     overrides: [
       dashboardRepositoryProvider.overrideWithValue(_FakeDashboardRepo()),
       staffRepositoryProvider.overrideWithValue(_FakeStaffRepo()),
+      deliveryRepositoryProvider.overrideWithValue(_FakeDeliveryRepo()),
     ],
     child: MaterialApp.router(
       theme: AppTheme.light,
