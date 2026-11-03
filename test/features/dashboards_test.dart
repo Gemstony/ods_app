@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:ods_app/core/config/app_config.dart';
 import 'package:ods_app/core/theme/app_theme.dart';
 import 'package:ods_app/data/models/auth/auth_user.dart';
+import 'package:ods_app/data/models/reward.dart';
 import 'package:ods_app/features/distributor/presentation/screens/distributor_dashboard_screen.dart';
 import 'package:ods_app/features/manager/presentation/screens/manager_dashboard_screen.dart';
 import 'package:ods_app/features/owner/presentation/screens/owner_dashboard_screen.dart';
@@ -22,6 +23,8 @@ import 'package:ods_app/data/repositories/delivery_repository.dart';
 import 'package:ods_app/data/models/branch.dart';
 import 'package:ods_app/data/repositories/branch_repository.dart';
 import 'package:ods_app/data/models/distributor_dashboard_kpis.dart';
+import 'package:ods_app/data/models/distributor_dashboard_kpis.dart';
+import 'package:ods_app/data/repositories/reward_repository.dart';
 
 /// Dashboard repository fake: returns empty data without any network
 /// call. Prevents the Owner / Manager home tabs from attempting real
@@ -41,6 +44,28 @@ class _FakeDashboardRepo extends DashboardRepository {
   Future<ApiResult<DistributorDashboardKpis>> getDistributorKpis() async =>
       ApiSuccess(DistributorDashboardKpis.empty());
 }
+
+class _FakeRewardRepo extends RewardRepository {
+  _FakeRewardRepo() : super(dio: Dio());
+
+  @override
+  Future<ApiResult<Reward>> getMyProgress() async => ApiSuccess(_emptyReward());
+
+  @override
+  Future<ApiResult<DistributorRewardKpis>> getMyOverview() async =>
+      ApiSuccess(DistributorRewardKpis.empty());
+
+  Reward _emptyReward() => const Reward(
+        id: 0,
+        distributorId: 0,
+        currentMonth: '',
+        monthlyCount: 0,
+        tier1Available: false,
+        rollingCount: 0,
+        tier2Available: false,
+      );
+}
+
 class _FakeStaffRepo extends StaffRepository {
   _FakeStaffRepo() : super(dio: Dio());
 
@@ -143,6 +168,7 @@ Widget _wrapDashboard(Widget dashboard) {
       staffRepositoryProvider.overrideWithValue(_FakeStaffRepo()),
       deliveryRepositoryProvider.overrideWithValue(_FakeDeliveryRepo()),
       branchRepositoryProvider.overrideWithValue(_FakeBranchRepo()),
+      rewardRepositoryProvider.overrideWithValue(_FakeRewardRepo()),
     ],
     child: MaterialApp.router(
       theme: AppTheme.light,

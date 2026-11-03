@@ -6,6 +6,7 @@ import '../../../../widgets/role_dashboard_scaffold.dart';
 import '../wizards/new_receive_delivery_wizard.dart';
 import 'distributor_home_tab.dart';
 import 'distributor_history_tab.dart';
+import 'distributor_rewards_tab.dart';
 
 class DistributorDashboardScreen extends StatelessWidget {
   const DistributorDashboardScreen({super.key});
@@ -50,11 +51,7 @@ class DistributorDashboardScreen extends StatelessWidget {
         const RoleDashboardTab(
           label: 'Rewards',
           icon: Icons.card_giftcard_rounded,
-          body: ComingSoonTab(
-            title: 'Rewards progress',
-            phase: '7',
-            icon: Icons.card_giftcard_rounded,
-          ),
+          body: DistributorRewardsTab(),
         ),
         const RoleDashboardTab(
           label: 'Profile',

@@ -7,6 +7,7 @@ import 'package:ods_app/core/network/api_interceptors.dart';
 import 'package:ods_app/core/network/api_result.dart';
 import 'package:ods_app/data/models/reward.dart';
 import 'package:ods_app/data/repositories/reward_repository.dart';
+import 'package:ods_app/data/models/distributor_dashboard_kpis.dart';
 
 class _CapturingAdapter implements HttpClientAdapter {
   _CapturingAdapter({required this.statusCode, required this.body});
@@ -57,16 +58,14 @@ Map<String, dynamic> _rewardJson({
       'current_month': '2026-10',
       'monthly_count': monthlyCount,
       'tier1_available': tier1Available,
-      'tier1_reached_at':
-          tier1Available ? '2026-10-24T07:00:00+00:00' : null,
+      'tier1_reached_at': tier1Available ? '2026-10-24T07:00:00+00:00' : null,
       'tier1_expires_at': tier1Available
           ? DateTime.now().add(const Duration(days: 30)).toIso8601String()
           : null,
       'rolling_count': rollingCount,
       'rolling_window_start': '2026-09-24T00:00:00+00:00',
       'tier2_available': tier2Available,
-      'tier2_reached_at':
-          tier2Available ? '2026-10-24T07:00:00+00:00' : null,
+      'tier2_reached_at': tier2Available ? '2026-10-24T07:00:00+00:00' : null,
       'tier2_expires_at': tier2Available
           ? DateTime.now().add(const Duration(days: 30)).toIso8601String()
           : null,
@@ -170,6 +169,96 @@ void main() {
 
       final result = await repo.getMyProgress();
 
+      expect(result, isA<ApiFailure>());
+      expect(result.failureOrNull!.type.name, 'auth');
+    });
+  });
+
+  group('RewardRepository.getMyOverview', () {
+    test('parses {progress, thresholds} shape', () async {
+      final adapter = _CapturingAdapter(
+        statusCode: 200,
+        body: {
+          'success': true,
+          'message': 'OK',
+          'data': {
+            'progress': {
+              'id': 1,
+              'distributor_id': 42,
+              'current_month': '2026-11',
+              'monthly_count': 8,
+              'tier1_available': false,
+              'rolling_count': 45,
+              'tier2_available': false,
+            },
+            'thresholds': {
+              'tier1': 20,
+              'tier2': 50,
+              'tier1_discount_percent': 50.0,
+            },
+          },
+        },
+      );
+      final repo = RewardRepository(dio: _dioWith(adapter));
+
+      final result = await repo.getMyOverview();
+
+      expect(result, isA<ApiSuccess<DistributorRewardKpis>>());
+      final kpis = result.dataOrNull!;
+      expect(kpis.progress.monthlyCount, 8);
+      expect(kpis.progress.rollingCount, 45);
+      expect(kpis.tier1Threshold, 20);
+      expect(kpis.tier2Threshold, 50);
+      expect(kpis.tier1DiscountPercent, 50.0);
+      expect(kpis.hasAnyAvailable, isFalse);
+    });
+
+    test('returns hasAnyAvailable=true when tier1 is usable', () async {
+      final adapter = _CapturingAdapter(
+        statusCode: 200,
+        body: {
+          'success': true,
+          'message': 'OK',
+          'data': {
+            'progress': {
+              'id': 1,
+              'distributor_id': 42,
+              'current_month': '2026-11',
+              'monthly_count': 20,
+              'tier1_available': true,
+              'tier1_expires_at': DateTime.now()
+                  .add(const Duration(days: 30))
+                  .toIso8601String(),
+              'rolling_count': 0,
+              'tier2_available': false,
+            },
+            'thresholds': {
+              'tier1': 20,
+              'tier2': 50,
+              'tier1_discount_percent': 50.0,
+            },
+          },
+        },
+      );
+      final repo = RewardRepository(dio: _dioWith(adapter));
+
+      final result = await repo.getMyOverview();
+      expect(result.dataOrNull!.hasAnyAvailable, isTrue);
+      expect(result.dataOrNull!.progress.isTier1Usable, isTrue);
+    });
+
+    test('maps 403 to auth failure', () async {
+      final adapter = _CapturingAdapter(
+        statusCode: 403,
+        body: {
+          'success': false,
+          'message': 'Forbidden',
+          'errors': null,
+        },
+      );
+      final repo = RewardRepository(dio: _dioWith(adapter));
+
+      final result = await repo.getMyOverview();
       expect(result, isA<ApiFailure>());
       expect(result.failureOrNull!.type.name, 'auth');
     });
