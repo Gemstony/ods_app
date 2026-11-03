@@ -21,6 +21,7 @@ import 'package:ods_app/data/models/delivery.dart';
 import 'package:ods_app/data/repositories/delivery_repository.dart';
 import 'package:ods_app/data/models/branch.dart';
 import 'package:ods_app/data/repositories/branch_repository.dart';
+import 'package:ods_app/data/models/distributor_dashboard_kpis.dart';
 
 /// Dashboard repository fake: returns empty data without any network
 /// call. Prevents the Owner / Manager home tabs from attempting real
@@ -35,6 +36,10 @@ class _FakeDashboardRepo extends DashboardRepository {
   @override
   Future<ApiResult<ManagerDashboardKpis>> getManagerKpis() async =>
       ApiSuccess(ManagerDashboardKpis.empty());
+
+  @override
+  Future<ApiResult<DistributorDashboardKpis>> getDistributorKpis() async =>
+      ApiSuccess(DistributorDashboardKpis.empty());
 }
 
 class _FakeStaffRepo extends StaffRepository {
@@ -165,13 +170,21 @@ void main() {
     }
   });
 
-  testWidgets('Distributor dashboard renders with 5 tabs', (tester) async {
+  testWidgets('Distributor dashboard renders with 4 tabs + FAB', (tester) async {
     await _pumpDashboard(tester, const DistributorDashboardScreen());
     final navBar = tester.widget<NavigationBar>(find.byType(NavigationBar));
-    expect(navBar.destinations.length, 5);
-    for (final label in ['Home', 'New', 'History', 'Rewards', 'Profile']) {
+    expect(navBar.destinations.length, 4);
+
+    for (final label in ['Home', 'History', 'Rewards', 'Profile']) {
       expect(find.text(label), findsWidgets);
     }
+
+    // New tab removed
+    expect(find.text('New'), findsNothing);
+
+    // FAB present on the Home tab (wizard opens in Phase 7.3)
+    expect(find.byType(FloatingActionButton), findsOneWidget);
+    expect(find.text('New delivery'), findsOneWidget);
   });
 
   testWidgets('Rider dashboard renders with 4 tabs', (tester) async {

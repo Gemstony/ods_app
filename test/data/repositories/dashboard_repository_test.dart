@@ -8,6 +8,8 @@ import 'package:ods_app/core/network/api_result.dart';
 import 'package:ods_app/data/models/dashboard_kpis.dart';
 import 'package:ods_app/data/models/manager_dashboard_kpis.dart';
 import 'package:ods_app/data/repositories/dashboard_repository.dart';
+import 'package:ods_app/data/models/distributor_dashboard_kpis.dart';
+
 
 /// Captures every request, so tests can find the exact call made
 /// even when a follow-up request happens (same pattern from 5.7 fixup).
@@ -111,7 +113,68 @@ void main() {
       expect(adapter.lastGet.path, '/owner/dashboard');
     });
   });
+  group('DashboardRepository.getDistributorKpis', () {
+    test('GETs /distributor/dashboard and parses', () async {
+      final adapter = _CapturingAdapter(
+        statusCode: 200,
+        body: {
+          'success': true,
+          'message': 'OK',
+          'data': {
+            'deliveries': {
+              'active_count': 3,
+              'awaiting_payment_count': 1,
+              'delivered_this_month': 5,
+              'total_this_month': 9,
+            },
+            'revenue': {'spent_this_month_tsh': 15000.0},
+            'rewards': {
+              'progress': {
+                'id': 1,
+                'distributor_id': 42,
+                'current_month': '2026-11',
+                'monthly_count': 5,
+                'tier1_available': false,
+                'rolling_count': 45,
+                'tier2_available': false,
+              },
+              'thresholds': {
+                'tier1': 20,
+                'tier2': 50,
+                'tier1_discount_percent': 50.0,
+              },
+            },
+            'recent_deliveries': <Map<String, dynamic>>[],
+            'generated_at': '2026-11-04T14:00:00+00:00',
+          },
+        },
+      );
+      final repo = DashboardRepository(dio: _dioWith(adapter));
 
+      final result = await repo.getDistributorKpis();
+
+      expect(result, isA<ApiSuccess<DistributorDashboardKpis>>());
+      expect(result.dataOrNull!.deliveries.activeCount, 3);
+      expect(result.dataOrNull!.revenue.spentThisMonthTsh, 15000.0);
+      expect(adapter.lastGet.path, '/distributor/dashboard');
+    });
+
+    test('maps 403 to auth failure', () async {
+      final adapter = _CapturingAdapter(
+        statusCode: 403,
+        body: {
+          'success': false,
+          'message': 'Forbidden',
+          'errors': null,
+        },
+      );
+      final repo = DashboardRepository(dio: _dioWith(adapter));
+
+      final result = await repo.getDistributorKpis();
+      expect(result, isA<ApiFailure>());
+      expect(result.failureOrNull!.type.name, 'auth');
+    });
+  });
   group('DashboardRepository.getManagerKpis', () {
     test('GETs /manager/dashboard and parses', () async {
       final adapter = _CapturingAdapter(

@@ -4,6 +4,7 @@ import 'package:ods_app/data/models/manager_dashboard_kpis.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_result.dart';
 import '../models/dashboard_kpis.dart';
+import '../models/distributor_dashboard_kpis.dart';
 
 /// Fetches the Owner's dashboard KPIs.
 ///
@@ -29,6 +30,24 @@ class DashboardRepository {
       }
 
       return DashboardKpis.fromJson(data);
+    });
+  }
+
+  /// GET /distributor/dashboard
+  Future<ApiResult<DistributorDashboardKpis>> getDistributorKpis() {
+    return ApiResult.guard(() async {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/distributor/dashboard',
+      );
+
+      final body = response.data;
+      if (body == null) throw StateError('Empty response body');
+      final data = body['data'];
+      if (data is! Map<String, dynamic>) {
+        throw StateError('Unexpected envelope shape: $body');
+      }
+
+      return DistributorDashboardKpis.fromJson(data);
     });
   }
 

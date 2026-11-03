@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:ods_app/widgets/logout_menu.dart';
 
-import '../core/routing/route_names.dart';
+import 'logout_menu.dart';
 
 /// One tab definition for a [RoleDashboardScaffold].
 class RoleDashboardTab {
   final String label;
   final IconData icon;
   final Widget body;
+
+  /// Optional floating action button shown only when this tab is active.
+  /// A tab without one hides the FAB; a tab with one shows it in the
+  /// Scaffold's standard bottom-right position.
   final Widget? floatingActionButton;
 
   const RoleDashboardTab({
@@ -22,24 +25,23 @@ class RoleDashboardTab {
 ///   - AppBar with role name + a "back to login" escape hatch
 ///   - Body that switches between tabs via [IndexedStack]
 ///   - Bottom [NavigationBar] with role-specific destinations
+///   - Optional per-tab floating action button
 ///
 /// All five role dashboards use this widget so navigation feel, animation
-/// timing, and spacing stay consistent. Future phases replace only the
-/// `body` of individual tabs — never the scaffold itself.
+/// timing, spacing, and FAB placement stay consistent. Future phases
+/// replace only the `body` of individual tabs — never the scaffold.
 class RoleDashboardScaffold extends StatefulWidget {
   final String title;
   final List<RoleDashboardTab> tabs;
   final int initialIndex;
 
-  RoleDashboardScaffold({
+  const RoleDashboardScaffold({
     super.key,
     required this.title,
     required this.tabs,
     this.initialIndex = 0,
-  }) {
-    assert(tabs.length >= 2 && tabs.length <= 5,
-        'NavigationBar supports 2–5 destinations.');
-  }
+  }) : assert(tabs.length >= 2 && tabs.length <= 5,
+            'NavigationBar supports 2–5 destinations.');
 
   @override
   State<RoleDashboardScaffold> createState() => _RoleDashboardScaffoldState();
@@ -70,7 +72,7 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
         index: _index,
         children: [for (final tab in widget.tabs) tab.body],
       ),
-      
+      floatingActionButton: widget.tabs[_index].floatingActionButton,
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: _onTabSelected,
