@@ -86,8 +86,7 @@ enum DeliveryStatus {
       this == dispatched;
 
   /// True once the rider has the package in hand.
-  bool get isInTransit =>
-      this == picked_up || this == dispatched;
+  bool get isInTransit => this == picked_up || this == dispatched;
 
   // ─── UI label ────────────────────────────────────────────
   /// Human-readable label for status chips and tables.
@@ -192,6 +191,11 @@ class Delivery {
   // ─── Extras ──────────────────────────────────────────────
   final String? notes;
 
+  /// Time (in whole hours) that the package has been sitting at the
+  /// branch waiting for pickup. Populated only by the Manager Packages
+  /// endpoint (`GET /manager/packages`) — null everywhere else.
+  final int? hoursAtBranch;
+
   // ─── Items (nullable — only included when backend loads them) ─
   final List<DeliveryItem>? items;
 
@@ -247,6 +251,7 @@ class Delivery {
     this.cancelledBy,
     this.cancellationReason,
     this.notes,
+    this.hoursAtBranch,
     this.items,
     this.createdAt,
     this.updatedAt,
@@ -285,15 +290,12 @@ class Delivery {
       destinationBusStop: json['destination_bus_stop'] as String?,
       recipientName: json['recipient_name'] as String?,
       recipientPhone: json['recipient_phone'] as String?,
-      distanceKm: json['distance_km'] == null
-          ? null
-          : asDouble(json['distance_km']),
-      ratePerKm: json['rate_per_km'] == null
-          ? null
-          : asDouble(json['rate_per_km']),
-      minimumFee: json['minimum_fee'] == null
-          ? null
-          : asDouble(json['minimum_fee']),
+      distanceKm:
+          json['distance_km'] == null ? null : asDouble(json['distance_km']),
+      ratePerKm:
+          json['rate_per_km'] == null ? null : asDouble(json['rate_per_km']),
+      minimumFee:
+          json['minimum_fee'] == null ? null : asDouble(json['minimum_fee']),
       roundingIncrement: json['rounding_increment'] == null
           ? null
           : asInt(json['rounding_increment']),
@@ -310,9 +312,8 @@ class Delivery {
           ? 0.0
           : asDouble(json['discount_amount']),
       discountReason: json['discount_reason'] as String?,
-      totalAmount: json['total_amount'] == null
-          ? null
-          : asDouble(json['total_amount']),
+      totalAmount:
+          json['total_amount'] == null ? null : asDouble(json['total_amount']),
       currency: json['currency'] as String? ?? 'TZS',
       riderId: json['rider_id'] == null ? null : asInt(json['rider_id']),
       assignedAt: parseDate(json['assigned_at']),
@@ -320,9 +321,8 @@ class Delivery {
       acceptedAt: parseDate(json['accepted_at']),
       pickedUpAt: parseDate(json['picked_up_at']),
       deliveredAt: parseDate(json['delivered_at']),
-      dispatcherId: json['dispatcher_id'] == null
-          ? null
-          : asInt(json['dispatcher_id']),
+      dispatcherId:
+          json['dispatcher_id'] == null ? null : asInt(json['dispatcher_id']),
       dispatchedAt: parseDate(json['dispatched_at']),
       batchId: json['batch_id'] as String?,
       batchWindowStart: parseDate(json['batch_window_start']),
@@ -333,6 +333,9 @@ class Delivery {
           json['cancelled_by'] == null ? null : asInt(json['cancelled_by']),
       cancellationReason: json['cancellation_reason'] as String?,
       notes: json['notes'] as String?,
+      hoursAtBranch: json['hours_at_branch'] == null
+          ? null
+          : asInt(json['hours_at_branch']),
       items: asList(json['items'], DeliveryItem.fromJson),
       createdAt: parseDate(json['created_at']),
       updatedAt: parseDate(json['updated_at']),
@@ -386,6 +389,7 @@ class Delivery {
         'cancelled_by': cancelledBy,
         'cancellation_reason': cancellationReason,
         'notes': notes,
+        'hours_at_branch': hoursAtBranch,
         'items': items?.map((i) => i.toJson()).toList(),
         'created_at': createdAt?.toIso8601String(),
         'updated_at': updatedAt?.toIso8601String(),
@@ -422,5 +426,18 @@ class Delivery {
           '${busCargoFare!.toStringAsFixed(0)} transport';
     }
     return totalAmountLabel;
+  }
+
+  /// Aging bucket based on [hoursAtBranch]. Null when not set.
+  ///
+  ///   fresh  → < 4 hours
+  ///   aging  → 4–24 hours
+  ///   stale  → > 24 hours
+  String? get packageAge {
+    if (hoursAtBranch == null) return null;
+    final h = hoursAtBranch!;
+    if (h < 4) return 'fresh';
+    if (h <= 24) return 'aging';
+    return 'stale';
   }
 }

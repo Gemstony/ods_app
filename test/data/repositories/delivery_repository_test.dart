@@ -481,6 +481,54 @@ void main() {
       expect(result.failureOrNull!.type.name, 'notFound');
     });
   });
+
+  group('DeliveryRepository.listAtBranch', () {
+    test('calls /manager/packages and parses items', () async {
+      final adapter = _CapturingAdapter(
+        statusCode: 200,
+        body: _successEnvelope({
+          'data': [
+            {..._deliveryJson(trackingId: 'ODS-1'), 'hours_at_branch': 2},
+            {..._deliveryJson(trackingId: 'ODS-2'), 'hours_at_branch': 26},
+          ],
+          'total': 2,
+          'per_page': 100,
+          'current_page': 1,
+          'last_page': 1,
+        }),
+      );
+      final repo = DeliveryRepository(dio: _dioWith(adapter));
+
+      final result = await repo.listAtBranch();
+
+      expect(result, isA<ApiSuccess>());
+      final list = result.dataOrNull!;
+      expect(list.length, 2);
+      expect(list[0].hoursAtBranch, 2);
+      expect(list[1].hoursAtBranch, 26);
+      expect(adapter.lastRequest!.path, '/manager/packages');
+      expect(adapter.lastRequest!.method, 'GET');
+    });
+
+    test('handles delivery without hours_at_branch', () async {
+      final adapter = _CapturingAdapter(
+        statusCode: 200,
+        body: _successEnvelope({
+          'data': [_deliveryJson()],
+          'total': 1,
+          'per_page': 100,
+          'current_page': 1,
+          'last_page': 1,
+        }),
+      );
+      final repo = DeliveryRepository(dio: _dioWith(adapter));
+
+      final result = await repo.listAtBranch();
+      expect(result.dataOrNull!.first.hoursAtBranch, isNull);
+      expect(result.dataOrNull!.first.packageAge, isNull);
+    });
+  });
+  
   // ─── listForRider() ────────────────────────────────────────
   group('DeliveryRepository.listForRider', () {
     test('calls /rider/tasks with optional status', () async {

@@ -142,6 +142,26 @@ class DeliveryRepository {
       return Delivery.fromJson(_extractData(response));
     });
   }
+
+    /// GET /manager/packages
+  ///
+  /// Returns deliveries physically at the manager's branch — status is
+  /// `paid` or `batched` and service_type isn't `send`. Each delivery
+  /// carries a server-computed `hours_at_branch` field.
+  ///
+  /// Ordered oldest-first (server-side) so aging packages surface at
+  /// the top of the list.
+  Future<ApiResult<List<Delivery>>> listAtBranch() {
+    return ApiResult.guard(() async {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/manager/packages',
+      );
+
+      final data = _extractData(response);
+      return _extractList(data, Delivery.fromJson);
+    });
+  }
+  
   // ────────────────────────────────────────────────────────
   // Rider-facing (Phase 8)
   // ────────────────────────────────────────────────────────

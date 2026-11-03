@@ -5,6 +5,7 @@ import '../../../../widgets/role_dashboard_scaffold.dart';
 import 'manager_home_tab.dart';
 import 'manager_staff_tab.dart';
 import 'manager_deliveries_tab.dart';
+import 'manager_packages_tab.dart';
 
 class ManagerDashboardScreen extends StatelessWidget {
   const ManagerDashboardScreen({super.key});
@@ -32,11 +33,7 @@ class ManagerDashboardScreen extends StatelessWidget {
         RoleDashboardTab(
           label: 'Packages',
           icon: Icons.inventory_2_rounded,
-          body: ComingSoonTab(
-            title: 'Package handling',
-            phase: '6',
-            icon: Icons.inventory_2_rounded,
-          ),
+          body: const ManagerPackagesTab(),
         ),
         RoleDashboardTab(
           label: 'Profile',

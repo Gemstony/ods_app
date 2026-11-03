@@ -60,6 +60,10 @@ class _FakeDeliveryRepo extends DeliveryRepository {
     int page = 1,
   }) async =>
       const ApiSuccess<List<Delivery>>([]);
+
+  @override
+  Future<ApiResult<List<Delivery>>> listAtBranch() async =>
+      const ApiSuccess<List<Delivery>>([]);
 }
 
 /// Minimal router that renders [dashboard] directly at /dashboard, and a
