@@ -4,8 +4,10 @@ import '../../../../data/models/delivery.dart';
 import '../../../../widgets/coming_soon_tab.dart';
 import '../../../../widgets/role_dashboard_scaffold.dart';
 import '../wizards/new_receive_delivery_wizard.dart';
-import 'distributor_home_tab.dart';
+import '../wizards/new_send_delivery_wizard.dart';
+import '../wizards/widgets/service_picker_sheet.dart';
 import 'distributor_history_tab.dart';
+import 'distributor_home_tab.dart';
 import 'distributor_rewards_tab.dart';
 
 class DistributorDashboardScreen extends StatelessWidget {
@@ -23,10 +25,22 @@ class DistributorDashboardScreen extends StatelessWidget {
           floatingActionButton: Builder(
             builder: (fabContext) => FloatingActionButton.extended(
               onPressed: () async {
-                final delivery = await Navigator.of(fabContext)
-                    .push<Delivery>(MaterialPageRoute(
-                  builder: (_) => const NewReceiveDeliveryWizard(),
-                ));
+                // Ask which service the distributor wants.
+                final choice = await showServicePickerSheet(fabContext);
+                if (choice == null || !fabContext.mounted) return;
+
+                // Route to the correct wizard.
+                final Widget wizard = switch (choice) {
+                  DeliveryServiceChoice.receive =>
+                    const NewReceiveDeliveryWizard(),
+                  DeliveryServiceChoice.send =>
+                    const NewSendDeliveryWizard(),
+                };
+
+                final delivery =
+                    await Navigator.of(fabContext).push<Delivery>(
+                  MaterialPageRoute(builder: (_) => wizard),
+                );
                 if (delivery != null && fabContext.mounted) {
                   ScaffoldMessenger.of(fabContext)
                     ..clearSnackBars()

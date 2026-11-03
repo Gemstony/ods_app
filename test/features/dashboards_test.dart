@@ -248,6 +248,24 @@ void main() {
     }
   });
 
+  testWidgets('Distributor FAB opens service picker sheet', (tester) async {
+    await _pumpDashboard(tester, const DistributorDashboardScreen());
+
+    // Tap the FAB
+    await tester.tap(
+      find.widgetWithText(FloatingActionButton, 'New delivery'),
+    );
+    // Explicit pumps — sheet has a slide-in animation; avoid
+    // pumpAndSettle defensively.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    // Sheet content is visible
+    expect(find.text('Choose a service to continue.'), findsOneWidget);
+    expect(find.text('Receive'), findsOneWidget);
+    expect(find.text('Send'), findsOneWidget);
+  });
+
   testWidgets('tapping a tab updates the selected index', (tester) async {
     await _pumpDashboard(tester, const OwnerDashboardScreen());
 

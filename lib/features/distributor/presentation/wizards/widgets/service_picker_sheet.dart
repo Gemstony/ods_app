@@ -4,12 +4,15 @@ import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
 
 /// Which wizard to open from the FAB.
-enum DeliveryServiceChoice { receive, send, regional }
+///
+/// `regional` is deliberately absent — it arrives in Phase 7.5 alongside
+/// the Regional wizard. Adding it here without the target wizard would
+/// be a "card that goes nowhere."
+enum DeliveryServiceChoice { receive, send }
 
 /// Shows a modal sheet for choosing the delivery service type.
 ///
-/// In 7.4 only Receive and Send are available. Regional will appear in
-/// 7.5 — this sheet gets one more card at that point.
+/// Returns the chosen service, or null if dismissed.
 Future<DeliveryServiceChoice?> showServicePickerSheet(
   BuildContext context,
 ) {
@@ -67,8 +70,8 @@ class _ServicePickerContent extends StatelessWidget {
               color: AppColors.primary,
               title: 'Receive',
               subtitle: 'From a pickup branch to your current location',
-              onTap: () =>
-                  Navigator.of(context).pop(DeliveryServiceChoice.receive),
+              onTap: () => Navigator.of(context)
+                  .pop(DeliveryServiceChoice.receive),
             ),
             const SizedBox(height: AppSpacing.sm),
             _ServiceCard(
@@ -78,15 +81,6 @@ class _ServicePickerContent extends StatelessWidget {
               subtitle: 'From your location to a recipient',
               onTap: () =>
                   Navigator.of(context).pop(DeliveryServiceChoice.send),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            _ServiceCard(
-              icon: Icons.local_shipping_rounded,
-              color: AppColors.info,
-              title: 'Regional',
-              subtitle: 'To another city or region via bus or cargo',
-              onTap: () =>
-                  Navigator.of(context).pop(DeliveryServiceChoice.regional),
             ),
             const SizedBox(height: AppSpacing.xs),
           ],
