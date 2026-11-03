@@ -30,39 +30,41 @@ class EmptyView extends StatelessWidget {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircleAvatar(
-              radius: 44,
-              backgroundColor: AppColors.surface,
-              child: Icon(
-                icon ?? Icons.inbox_outlined,
-                size: 44,
-                color: AppColors.primaryLight,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: text.titleMedium,
-            ),
-            if (subtitle != null) ...[
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                subtitle!,
-                textAlign: TextAlign.center,
-                style: text.bodyMedium?.copyWith(
-                  color: AppColors.onSurfaceMuted,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircleAvatar(
+                radius: 44,
+                backgroundColor: AppColors.surface,
+                child: Icon(
+                  icon ?? Icons.inbox_outlined,
+                  size: 44,
+                  color: AppColors.primaryLight,
                 ),
               ),
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: text.titleMedium,
+              ),
+              if (subtitle != null) ...[
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  subtitle!,
+                  textAlign: TextAlign.center,
+                  style: text.bodyMedium?.copyWith(
+                    color: AppColors.onSurfaceMuted,
+                  ),
+                ),
+              ],
+              if (action != null) ...[
+                const SizedBox(height: AppSpacing.lg),
+                action!,
+              ],
             ],
-            if (action != null) ...[
-              const SizedBox(height: AppSpacing.lg),
-              action!,
-            ],
-          ],
+          ),
         ),
       ),
     );

@@ -41,7 +41,6 @@ class _FakeDashboardRepo extends DashboardRepository {
   Future<ApiResult<DistributorDashboardKpis>> getDistributorKpis() async =>
       ApiSuccess(DistributorDashboardKpis.empty());
 }
-
 class _FakeStaffRepo extends StaffRepository {
   _FakeStaffRepo() : super(dio: Dio());
 
@@ -71,6 +70,23 @@ class _FakeDeliveryRepo extends DeliveryRepository {
   @override
   Future<ApiResult<List<Delivery>>> listAtBranch() async =>
       const ApiSuccess<List<Delivery>>([]);
+
+  @override
+  Future<ApiResult<List<Delivery>>> listMine({
+    DeliveryStatus? status,
+    ServiceType? serviceType,
+    int? limit,
+    int? offset,
+  }) async =>
+      const ApiSuccess<List<Delivery>>([]);
+
+  @override
+  Future<ApiResult<Delivery>> getForBranch(int id) async =>
+      throw StateError('Not stubbed in dashboard tests');
+
+  @override
+  Future<ApiResult<Delivery>> getMine(int id) async =>
+      throw StateError('Not stubbed in dashboard tests');
 }
 
 class _FakeBranchRepo extends BranchRepository {
@@ -170,7 +186,8 @@ void main() {
     }
   });
 
-  testWidgets('Distributor dashboard renders with 4 tabs + FAB', (tester) async {
+  testWidgets('Distributor dashboard renders with 4 tabs + FAB',
+      (tester) async {
     await _pumpDashboard(tester, const DistributorDashboardScreen());
     final navBar = tester.widget<NavigationBar>(find.byType(NavigationBar));
     expect(navBar.destinations.length, 4);
