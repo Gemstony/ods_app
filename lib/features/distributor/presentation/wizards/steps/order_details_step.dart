@@ -11,15 +11,23 @@ import '../../../../../shared/providers/auth_provider.dart';
 import '../../../../../widgets/widgets.dart';
 import '../widgets/wizard_bottom_bar.dart';
 
-/// Step 2: enter order details.
+/// Step 2 (Receive) / Step 1 (Send): enter order details.
 ///
 /// Two modes (per the ODS doc):
 ///   - M-Commerce (EXGO Order IDs)
 ///   - WhatsApp orders (product table: name / code / quantity)
 ///
-/// Also captures the pickup-side contact phone.
+/// When [showContactPhone] is true (Receive), the pickup-side contact
+/// phone is captured and required. When false (Send), it's hidden —
+/// the rider contacts the recipient directly.
 class OrderDetailsStep extends ConsumerStatefulWidget {
   final ServiceType serviceType;
+
+  /// When true, the pickup contact phone field is shown and required.
+  /// Receive needs it (branch/rider may call the distributor). Send
+  /// doesn't — the rider contacts the recipient directly.
+  final bool showContactPhone;
+
   final void Function({
     required List<DeliveryItemInput> items,
     required String pickupContactPhone,
@@ -29,6 +37,7 @@ class OrderDetailsStep extends ConsumerStatefulWidget {
   const OrderDetailsStep({
     super.key,
     required this.serviceType,
+    this.showContactPhone = true,
     required this.onSubmitted,
     required this.onBack,
   });
@@ -54,8 +63,10 @@ class _OrderDetailsStepState extends ConsumerState<OrderDetailsStep> {
   @override
   void initState() {
     super.initState();
-    final user = ref.read(currentUserProvider);
-    _phoneController = TextEditingController(text: user?.phone ?? '');
+    final initialPhone = widget.showContactPhone
+        ? (ref.read(currentUserProvider)?.phone ?? '')
+        : '';
+    _phoneController = TextEditingController(text: initialPhone);
   }
 
   @override
@@ -117,7 +128,8 @@ class _OrderDetailsStepState extends ConsumerState<OrderDetailsStep> {
 
     widget.onSubmitted(
       items: items,
-      pickupContactPhone: _phoneController.text.trim(),
+      pickupContactPhone:
+          widget.showContactPhone ? _phoneController.text.trim() : '',
     );
   }
 
@@ -181,26 +193,28 @@ class _OrderDetailsStepState extends ConsumerState<OrderDetailsStep> {
                 else
                   _buildWhatsappSection(),
 
-                const SizedBox(height: AppSpacing.lg),
+                if (widget.showContactPhone) ...[
+                  const SizedBox(height: AppSpacing.lg),
 
-                // ─── Contact phone ───────────────────────────
-                Text(
-                  'Pickup contact phone',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                AppTextField(
-                  controller: _phoneController,
-                  label: 'Phone',
-                  hint: '0712 345 678',
-                  keyboardType: TextInputType.phone,
-                  prefixIcon: Icons.phone_outlined,
-                  helperText:
-                      'Used by the branch and rider to reach you at pickup.',
-                  validator: (v) => Validators.phone(v),
-                ),
+                  // ─── Contact phone ─────────────────────────
+                  Text(
+                    'Pickup contact phone',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  AppTextField(
+                    controller: _phoneController,
+                    label: 'Phone',
+                    hint: '0712 345 678',
+                    keyboardType: TextInputType.phone,
+                    prefixIcon: Icons.phone_outlined,
+                    helperText:
+                        'Used by the branch and rider to reach you at pickup.',
+                    validator: (v) => Validators.phone(v),
+                  ),
+                ],
               ],
             ),
           ),
