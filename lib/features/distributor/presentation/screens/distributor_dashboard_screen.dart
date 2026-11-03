@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../../../data/models/delivery.dart';
 import '../../../../widgets/coming_soon_tab.dart';
 import '../../../../widgets/role_dashboard_scaffold.dart';
-import 'distributor_home_tab.dart';
-import '../../../../data/models/delivery.dart';
 import '../wizards/new_receive_delivery_wizard.dart';
+import 'distributor_home_tab.dart';
 
 class DistributorDashboardScreen extends StatelessWidget {
   const DistributorDashboardScreen({super.key});

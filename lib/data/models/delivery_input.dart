@@ -62,7 +62,10 @@ class CreateDeliveryInput {
 
   final String? recipientName;
   final String? recipientPhone;
-
+  /// Regional-only: the amount charged by the bus/cargo transport
+  /// provider. Separate from the ODS delivery fee. Required by the
+  /// backend for Regional deliveries; ignored for Receive/Send.
+  final double? busCargoFare;
   final String? notes;
 
   const CreateDeliveryInput({
@@ -81,6 +84,7 @@ class CreateDeliveryInput {
     this.destinationBusStop,
     this.recipientName,
     this.recipientPhone,
+    this.busCargoFare,
     this.notes,
   });
 
@@ -105,6 +109,7 @@ class CreateDeliveryInput {
       if (destinationBusStop != null) 'destination_bus_stop': destinationBusStop,
       if (recipientName != null) 'recipient_name': recipientName,
       if (recipientPhone != null) 'recipient_phone': recipientPhone,
+      if (busCargoFare != null) 'bus_cargo_fare': busCargoFare,
       if (notes != null) 'notes': notes,
     };
   }
@@ -124,6 +129,7 @@ class PricePreviewInput {
   final double? destinationLongitude;
   final String? destinationRegion;
   final String? destinationDistrict;
+   final double? busCargoFare;
 
   /// Set to true when the distributor has an active tier-1 or tier-2
   /// reward and wants the discount applied. Backend recomputes eligibility.
@@ -138,6 +144,7 @@ class PricePreviewInput {
     this.destinationLongitude,
     this.destinationRegion,
     this.destinationDistrict,
+    this.busCargoFare,
     this.applyReward = false,
   });
 
@@ -154,6 +161,7 @@ class PricePreviewInput {
       if (destinationRegion != null) 'destination_region': destinationRegion,
       if (destinationDistrict != null)
         'destination_district': destinationDistrict,
+      if (busCargoFare != null) 'bus_cargo_fare': busCargoFare,
       'apply_reward': applyReward,
     };
   }
