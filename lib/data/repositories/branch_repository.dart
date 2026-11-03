@@ -123,6 +123,23 @@ class BranchRepository {
     });
   }
 
+  // ─── Distributor: available pickup branches ───────────────
+  /// GET /distributor/branches
+  ///
+  /// Returns all ACTIVE branches — the pickup locations a Distributor
+  /// can choose from. Excludes inactive branches (they can't receive
+  /// pickups). No pagination; ordered by name.
+  Future<ApiResult<List<Branch>>> listAvailableForPickup() {
+    return ApiResult.guard(() async {
+      final response = await _dio.get<Map<String, dynamic>>(
+        ApiEndpoints.distributorBranches,
+      );
+
+      final data = _extractData(response);
+      return _extractList(data, Branch.fromJson);
+    });
+  }
+
   // ─── Manager history ──────────────────────────────────────
   /// GET /owner/branches/{id}/managers
   ///

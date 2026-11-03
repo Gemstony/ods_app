@@ -34,8 +34,9 @@ class ApiEndpoints {
 
   // ─── Distributor (populated in Phase 7) ──────────────────────────
   static const String distributorDeliveries = '/distributor/deliveries';
-  static const String distributorPricePreview =
-      '/distributor/deliveries/price-preview';
+  static const String distributorPricePreview = '/distributor/deliveries/price-preview';
+    // ─── Distributor ──────────────────────────────────────────
+  static const String distributorBranches = '/distributor/branches';
 
   // ─── Rider (populated in Phase 8) ────────────────────────────────
   static const String riderTasks = '/rider/tasks';

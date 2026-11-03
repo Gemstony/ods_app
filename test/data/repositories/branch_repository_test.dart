@@ -47,9 +47,9 @@ Dio _dioWith(_CapturingAdapter adapter) {
   return dio;
 }
 
-Map<String, dynamic> _branchJson({int id = 1, String code = 'DSM-01'}) => {
+Map<String, dynamic> _branchJson({int id = 1, String code = 'DSM-01', String name = 'Dar es Salaam Central'}) => {
       'id': id,
-      'name': 'Dar es Salaam Central',
+      'name': name,
       'code': code,
       'address': '123 Kariakoo, DSM',
       'latitude': -6.79,
@@ -268,6 +268,48 @@ void main() {
         result.failureOrNull!.fieldErrors['code'],
         contains('This code is already in use.'),
       );
+    });
+  });
+
+    group('BranchRepository.listAvailableForPickup', () {
+    test('calls /distributor/branches and parses list', () async {
+      final adapter = _CapturingAdapter(
+        statusCode: 200,
+        body: {
+          'success': true,
+          'message': 'OK',
+          'data': {
+            'data': [
+              _branchJson(id: 1, code: 'DSM-01', name: 'DSM Central'),
+              _branchJson(id: 2, code: 'ARU-01', name: 'Arusha Branch'),
+            ],
+            'total': 2,
+          },
+        },
+      );
+      final repo = BranchRepository(dio: _dioWith(adapter));
+
+      final result = await repo.listAvailableForPickup();
+
+      expect(result, isA<ApiSuccess<List<Branch>>>());
+      expect(result.dataOrNull!.length, 2);
+      expect(adapter.lastRequest!.path, '/distributor/branches');
+      expect(adapter.lastRequest!.method, 'GET');
+    });
+
+    test('returns empty list when no active branches', () async {
+      final adapter = _CapturingAdapter(
+        statusCode: 200,
+        body: {
+          'success': true,
+          'message': 'OK',
+          'data': {'data': <Map<String, dynamic>>[], 'total': 0},
+        },
+      );
+      final repo = BranchRepository(dio: _dioWith(adapter));
+
+      final result = await repo.listAvailableForPickup();
+      expect(result.dataOrNull, isEmpty);
     });
   });
 

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../../widgets/coming_soon_tab.dart';
 import '../../../../widgets/role_dashboard_scaffold.dart';
 import 'distributor_home_tab.dart';
+import '../../../../data/models/delivery.dart';
+import '../wizards/new_receive_delivery_wizard.dart';
 
 class DistributorDashboardScreen extends StatelessWidget {
   const DistributorDashboardScreen({super.key});
@@ -18,13 +20,21 @@ class DistributorDashboardScreen extends StatelessWidget {
           body: const DistributorHomeTab(),
           floatingActionButton: Builder(
             builder: (fabContext) => FloatingActionButton.extended(
-              onPressed: () {
-                // Wizard arrives in Phase 7.3. Until then, honest feedback.
-                ScaffoldMessenger.of(fabContext)
-                  ..clearSnackBars()
-                  ..showSnackBar(const SnackBar(
-                    content: Text('New delivery wizard — coming in Phase 7.3'),
-                  ));
+              onPressed: () async {
+                final delivery = await Navigator.of(fabContext)
+                    .push<Delivery>(MaterialPageRoute(
+                  builder: (_) => const NewReceiveDeliveryWizard(),
+                ));
+                if (delivery != null && fabContext.mounted) {
+                  ScaffoldMessenger.of(fabContext)
+                    ..clearSnackBars()
+                    ..showSnackBar(SnackBar(
+                      content: Text(
+                        'Delivery ${delivery.trackingId} created. '
+                        'Complete payment to confirm.',
+                      ),
+                    ));
+                }
               },
               icon: const Icon(Icons.add),
               label: const Text('New delivery'),
