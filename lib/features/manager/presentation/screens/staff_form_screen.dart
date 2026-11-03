@@ -8,7 +8,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../data/models/auth/auth_user.dart';
 import '../../../../data/models/create_user_input.dart';
-import '../../../../shared/providers/branch_providers.dart';
+import '../providers/manager_branch_providers.dart';
 import '../../../../shared/providers/repository_providers.dart';
 import '../../../../shared/providers/dashboard_providers.dart';
 import '../../../../widgets/widgets.dart';
@@ -112,19 +112,16 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
         widget.initialUser!.id,
         name: _nameController.text.trim(),
         phone: _phoneController.text.trim(),
-        dispatcherEnabled:
-            _role == 'receiver' ? _dispatcherEnabled : null,
+        dispatcherEnabled: _role == 'receiver' ? _dispatcherEnabled : null,
         nida: _role == 'rider' ? _nidaController.text.trim() : null,
         sex: _role == 'rider' ? _sex : null,
-        dateOfBirth:
-            _role == 'rider' ? _dobController.text.trim() : null,
+        dateOfBirth: _role == 'rider' ? _dobController.text.trim() : null,
         vehicleType:
             _role == 'rider' ? _vehicleTypeController.text.trim() : null,
         vehicleColor:
             _role == 'rider' ? _vehicleColorController.text.trim() : null,
         vehicleOwnership: _role == 'rider' ? _vehicleOwnership : null,
-        plateNumber:
-            _role == 'rider' ? _plateController.text.trim() : null,
+        plateNumber: _role == 'rider' ? _plateController.text.trim() : null,
       );
 
       if (!mounted) return;
@@ -148,19 +145,16 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
         password: _passwordController.text,
         passwordConfirmation: _passwordConfirmController.text,
         // branchId intentionally omitted — server forces it to manager's branch
-        dispatcherEnabled:
-            _role == 'receiver' ? _dispatcherEnabled : null,
+        dispatcherEnabled: _role == 'receiver' ? _dispatcherEnabled : null,
         nida: _role == 'rider' ? _nidaController.text.trim() : null,
         sex: _role == 'rider' ? _sex : null,
-        dateOfBirth:
-            _role == 'rider' ? _dobController.text.trim() : null,
+        dateOfBirth: _role == 'rider' ? _dobController.text.trim() : null,
         vehicleType:
             _role == 'rider' ? _vehicleTypeController.text.trim() : null,
         vehicleColor:
             _role == 'rider' ? _vehicleColorController.text.trim() : null,
         vehicleOwnership: _role == 'rider' ? _vehicleOwnership : null,
-        plateNumber:
-            _role == 'rider' ? _plateController.text.trim() : null,
+        plateNumber: _role == 'rider' ? _plateController.text.trim() : null,
       );
 
       final result = await repo.create(input);
@@ -200,8 +194,9 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final branchAsync = ref.watch(currentBranchProvider);
-
+    // Use the manager-specific provider — /owner/branches/{id} 403s
+    // for the Manager role. See 6.6 fixup.
+    final branchAsync = ref.watch(managerBranchProvider);
     return Scaffold(
       appBar: AppBar(
         title: Text(_isEdit ? 'Edit staff' : 'Add staff'),
@@ -219,8 +214,7 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
                   padding: const EdgeInsets.all(AppSpacing.sm),
                   decoration: BoxDecoration(
                     color: AppColors.surface,
-                    borderRadius:
-                        BorderRadius.circular(AppSpacing.radiusMd),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                     border: Border.all(color: AppColors.border),
                   ),
                   child: Row(
@@ -235,13 +229,11 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
                         child: Text(
                           'Adding to: ${branchAsync.value!.name} '
                           '(${branchAsync.value!.code})',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.onSurface,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.onSurface,
+                                  ),
                         ),
                       ),
                     ],
@@ -291,8 +283,7 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
                 enabled: !_submitting && !_isEdit,
                 textInputAction: TextInputAction.next,
                 helperText: _isEdit ? 'Email cannot be changed' : null,
-                validator: (v) =>
-                    _serverErrors['email'] ?? _validateEmail(v),
+                validator: (v) => _serverErrors['email'] ?? _validateEmail(v),
               ),
               const SizedBox(height: AppSpacing.sm),
               AppTextField(
@@ -303,8 +294,7 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
                 prefixIcon: Icons.phone_outlined,
                 enabled: !_submitting,
                 textInputAction: TextInputAction.next,
-                validator: (v) =>
-                    _serverErrors['phone'] ?? _validatePhone(v),
+                validator: (v) => _serverErrors['phone'] ?? _validatePhone(v),
               ),
 
               // ─── Password (create mode only) ────────────────
@@ -364,8 +354,7 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
                     FilteringTextInputFormatter.digitsOnly,
                     LengthLimitingTextInputFormatter(20),
                   ],
-                  validator: (v) =>
-                      _serverErrors['nida'] ?? _validateNida(v),
+                  validator: (v) => _serverErrors['nida'] ?? _validateNida(v),
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 DropdownButtonFormField<String>(
@@ -501,4 +490,4 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
     if (!parsed.isBefore(DateTime.now())) return 'Must be in the past.';
     return null;
   }
-} 
+}

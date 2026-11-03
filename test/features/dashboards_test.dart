@@ -19,6 +19,8 @@ import 'package:ods_app/shared/providers/repository_providers.dart';
 import 'package:ods_app/data/repositories/staff_repository.dart';
 import 'package:ods_app/data/models/delivery.dart';
 import 'package:ods_app/data/repositories/delivery_repository.dart';
+import 'package:ods_app/data/models/branch.dart';
+import 'package:ods_app/data/repositories/branch_repository.dart';
 
 /// Dashboard repository fake: returns empty data without any network
 /// call. Prevents the Owner / Manager home tabs from attempting real
@@ -66,6 +68,39 @@ class _FakeDeliveryRepo extends DeliveryRepository {
       const ApiSuccess<List<Delivery>>([]);
 }
 
+class _FakeBranchRepo extends BranchRepository {
+  _FakeBranchRepo() : super(dio: Dio());
+
+  @override
+  Future<ApiResult<Branch>> getMyBranch() async => const ApiSuccess(Branch(
+        id: 1,
+        name: 'Test Branch',
+        code: 'TST-01',
+        address: 'Address',
+        latitude: 0,
+        longitude: 0,
+        status: BranchStatus.active,
+      ));
+
+  @override
+  Future<ApiResult<Branch>> updateMyBranch({
+    required String name,
+    required String address,
+    required double latitude,
+    required double longitude,
+    Map<String, dynamic>? operatingHours,
+  }) async =>
+      const ApiSuccess(Branch(
+        id: 1,
+        name: 'Test Branch',
+        code: 'TST-01',
+        address: 'Address',
+        latitude: 0,
+        longitude: 0,
+        status: BranchStatus.active,
+      ));
+}
+
 /// Minimal router that renders [dashboard] directly at /dashboard, and a
 /// stub at /login so the dashboard's AppBar logout action (which calls
 /// `context.go(RouteNames.login)`) doesn't throw during interaction tests.
@@ -86,6 +121,7 @@ Widget _wrapDashboard(Widget dashboard) {
       dashboardRepositoryProvider.overrideWithValue(_FakeDashboardRepo()),
       staffRepositoryProvider.overrideWithValue(_FakeStaffRepo()),
       deliveryRepositoryProvider.overrideWithValue(_FakeDeliveryRepo()),
+      branchRepositoryProvider.overrideWithValue(_FakeBranchRepo()),
     ],
     child: MaterialApp.router(
       theme: AppTheme.light,

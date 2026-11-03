@@ -11,7 +11,7 @@ import 'package:ods_app/core/theme/app_theme.dart';
 import 'package:ods_app/data/models/branch.dart';
 import 'package:ods_app/data/repositories/staff_repository.dart';
 import 'package:ods_app/features/manager/presentation/screens/staff_form_screen.dart';
-import 'package:ods_app/shared/providers/branch_providers.dart';
+import 'package:ods_app/features/manager/presentation/providers/manager_branch_providers.dart';
 import 'package:ods_app/shared/providers/repository_providers.dart';
 
 void _useLargeViewport(WidgetTester tester) {
@@ -87,8 +87,7 @@ final _branch = Branch(
 Widget _wrap({StaffRepository? repo}) => ProviderScope(
       overrides: [
         staffRepositoryProvider.overrideWithValue(repo ?? _okRepo()),
-        currentBranchProvider.overrideWith((ref) async => _branch),
-      ],
+        managerBranchProvider.overrideWith((ref) async => _branch),      ],
       child: MaterialApp(
         theme: AppTheme.light,
         home: const StaffFormScreen(),

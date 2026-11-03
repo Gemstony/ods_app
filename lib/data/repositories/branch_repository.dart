@@ -82,7 +82,48 @@ class BranchRepository {
     });
   }
 
-    // ─── Manager history ──────────────────────────────────────
+  // ─── Manager: own branch ──────────────────────────────────
+  /// GET /manager/branch
+  ///
+  /// Returns the signed-in Manager's branch with the current manager
+  /// included. Branch-scoped by the backend's role middleware.
+  Future<ApiResult<Branch>> getMyBranch() {
+    return ApiResult.guard(() async {
+      final response = await _dio.get<Map<String, dynamic>>(
+        ApiEndpoints.managerBranch,
+      );
+      return Branch.fromJson(_extractData(response));
+    });
+  }
+
+  /// PUT /manager/branch
+  ///
+  /// Manager can edit name, address, GPS, and operating hours — but NOT
+  /// code or status. Those are Owner-only (see 6.1). The backend
+  /// rejects attempts to include them.
+  Future<ApiResult<Branch>> updateMyBranch({
+    required String name,
+    required String address,
+    required double latitude,
+    required double longitude,
+    Map<String, dynamic>? operatingHours,
+  }) {
+    return ApiResult.guard(() async {
+      final response = await _dio.put<Map<String, dynamic>>(
+        ApiEndpoints.managerBranch,
+        data: {
+          'name': name,
+          'address': address,
+          'latitude': latitude,
+          'longitude': longitude,
+          if (operatingHours != null) 'operating_hours': operatingHours,
+        },
+      );
+      return Branch.fromJson(_extractData(response));
+    });
+  }
+
+  // ─── Manager history ──────────────────────────────────────
   /// GET /owner/branches/{id}/managers
   ///
   /// Returns the full assignment history (active + past), newest first.

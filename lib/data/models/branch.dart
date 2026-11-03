@@ -1,5 +1,40 @@
 import '../../core/utils/json_helpers.dart';
 
+/// Minimal reference to a branch's current manager.
+///
+/// Populated only when the branch response includes `current_manager`
+/// (which `ManagerBranchController::show` does via eager-loaded
+/// `managerAssignments.user`). Nullable everywhere else.
+class BranchManagerRef {
+  final int id;
+  final String name;
+  final String email;
+  final DateTime? assignedAt;
+
+  const BranchManagerRef({
+    required this.id,
+    required this.name,
+    required this.email,
+    this.assignedAt,
+  });
+
+  factory BranchManagerRef.fromJson(Map<String, dynamic> json) {
+    return BranchManagerRef(
+      id: asInt(json['id'] ?? 0),
+      name: (json['name'] as String?) ?? '',
+      email: (json['email'] as String?) ?? '',
+      assignedAt: parseDate(json['assigned_at']),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'email': email,
+        'assigned_at': assignedAt?.toIso8601String(),
+      };
+}
+
 /// A physical NeoLife pickup branch operating under ODS.
 ///
 /// Mirrors the backend `App\Models\Branch` from Phase 2.2. The `code` is a
@@ -39,6 +74,7 @@ class Branch {
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final DateTime? deletedAt;
+  final BranchManagerRef? currentManager;
 
   const Branch({
     required this.id,
@@ -53,6 +89,7 @@ class Branch {
     this.createdAt,
     this.updatedAt,
     this.deletedAt,
+    this.currentManager,
   });
 
   factory Branch.fromJson(Map<String, dynamic> json) {
@@ -69,6 +106,10 @@ class Branch {
       createdAt: parseDate(json['created_at']),
       updatedAt: parseDate(json['updated_at']),
       deletedAt: parseDate(json['deleted_at']),
+      currentManager: json['current_manager'] is Map<String, dynamic>
+          ? BranchManagerRef.fromJson(
+              json['current_manager'] as Map<String, dynamic>)
+          : null,
     );
   }
 
@@ -85,6 +126,7 @@ class Branch {
         'created_at': createdAt?.toIso8601String(),
         'updated_at': updatedAt?.toIso8601String(),
         'deleted_at': deletedAt?.toIso8601String(),
+        'current_manager': currentManager?.toJson(),
       };
 
   // ─── Helpers used by UI screens ───────────────────────────

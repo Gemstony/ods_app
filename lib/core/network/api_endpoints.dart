@@ -29,6 +29,8 @@ class ApiEndpoints {
   // ─── Manager (populated in Phase 6) ──────────────────────────────
   static const String managerStaff = '/manager/staff';
   static const String managerDeliveries = '/manager/deliveries';
+  static const String managerBranch = '/manager/branch';
+  static const String managerPackages = '/manager/packages';
 
   // ─── Distributor (populated in Phase 7) ──────────────────────────
   static const String distributorDeliveries = '/distributor/deliveries';

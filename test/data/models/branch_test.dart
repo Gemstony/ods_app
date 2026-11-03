@@ -38,7 +38,27 @@ void main() {
       expect(branch.operatingHours!['monday'], isNotNull);
       expect(branch.operatingHours!['sunday'], isNull);
     });
+    test('parses current_manager when present', () {
+      final json = Map<String, dynamic>.from(_fullJson())
+        ..['current_manager'] = {
+          'id': 42,
+          'name': 'Jane Manager',
+          'email': 'jane@ods.test',
+          'assigned_at': '2026-06-01T00:00:00+00:00',
+        };
+      final branch = Branch.fromJson(json);
 
+      expect(branch.currentManager, isNotNull);
+      expect(branch.currentManager!.id, 42);
+      expect(branch.currentManager!.name, 'Jane Manager');
+      expect(branch.currentManager!.email, 'jane@ods.test');
+      expect(branch.currentManager!.assignedAt, isNotNull);
+    });
+
+    test('current_manager is null when missing', () {
+      final branch = Branch.fromJson(_fullJson());
+      expect(branch.currentManager, isNull);
+    });
     test('handles missing optional fields', () {
       final json = Map<String, dynamic>.from(_fullJson())
         ..remove('created_by')
@@ -97,6 +117,20 @@ void main() {
       expect(roundtripped.status, original.status);
       expect(roundtripped.createdBy, original.createdBy);
       expect(roundtripped.createdAt, original.createdAt);
+    });
+
+    test('current_manager round-trips when present', () {
+      final json = Map<String, dynamic>.from(_fullJson())
+        ..['current_manager'] = {
+          'id': 42,
+          'name': 'Jane',
+          'email': 'j@ods.test',
+          'assigned_at': '2026-06-01T00:00:00+00:00',
+        };
+      final original = Branch.fromJson(json);
+      final roundtripped = Branch.fromJson(original.toJson());
+      expect(roundtripped.currentManager?.id, 42);
+      expect(roundtripped.currentManager?.name, 'Jane');
     });
   });
 

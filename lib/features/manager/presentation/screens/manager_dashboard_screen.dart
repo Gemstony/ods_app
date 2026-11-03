@@ -6,6 +6,7 @@ import 'manager_home_tab.dart';
 import 'manager_staff_tab.dart';
 import 'manager_deliveries_tab.dart';
 import 'manager_packages_tab.dart';
+import 'manager_profile_tab.dart';
 
 class ManagerDashboardScreen extends StatelessWidget {
   const ManagerDashboardScreen({super.key});
@@ -38,11 +39,7 @@ class ManagerDashboardScreen extends StatelessWidget {
         RoleDashboardTab(
           label: 'Profile',
           icon: Icons.person_rounded,
-          body: ComingSoonTab(
-            title: 'Branch profile',
-            phase: '6',
-            icon: Icons.person_rounded,
-          ),
+          body: const ManagerProfileTab(),
         ),
       ],
     );

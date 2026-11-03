@@ -298,4 +298,113 @@ void main() {
       expect(sent['status'], 'inactive');
     });
   });
+
+  group('BranchRepository.getMyBranch', () {
+    test('calls /manager/branch and parses', () async {
+      final adapter = _CapturingAdapter(
+        statusCode: 200,
+        body: _successEnvelope(_branchJson(id: 5)),
+      );
+      final repo = BranchRepository(dio: _dioWith(adapter));
+
+      final result = await repo.getMyBranch();
+
+      expect(result, isA<ApiSuccess<Branch>>());
+      expect(result.dataOrNull!.id, 5);
+      expect(adapter.lastRequest!.path, '/manager/branch');
+      expect(adapter.lastRequest!.method, 'GET');
+    });
+
+    test('maps 403 to auth failure (no branch assigned)', () async {
+      final adapter = _CapturingAdapter(
+        statusCode: 403,
+        body: {
+          'success': false,
+          'message': 'Your account is not assigned to a branch.',
+          'errors': null,
+        },
+      );
+      final repo = BranchRepository(dio: _dioWith(adapter));
+
+      final result = await repo.getMyBranch();
+      expect(result, isA<ApiFailure>());
+      expect(result.failureOrNull!.type.name, 'auth');
+    });
+  });
+
+  group('BranchRepository.updateMyBranch', () {
+    test('PUTs /manager/branch with editable fields only', () async {
+      final adapter = _CapturingAdapter(
+        statusCode: 200,
+        body: _successEnvelope(_branchJson(id: 5)),
+      );
+      final repo = BranchRepository(dio: _dioWith(adapter));
+
+      await repo.updateMyBranch(
+        name: 'Updated Name',
+        address: 'New address',
+        latitude: -6.85,
+        longitude: 39.25,
+        operatingHours: const {
+          'monday': {'open': '09:00', 'close': '17:00'},
+        },
+      );
+
+      expect(adapter.lastRequest!.path, '/manager/branch');
+      expect(adapter.lastRequest!.method, 'PUT');
+      final sent = adapter.lastRequest!.data as Map<String, dynamic>;
+      expect(sent['name'], 'Updated Name');
+      expect(sent['address'], 'New address');
+      expect(sent['latitude'], -6.85);
+      expect(sent['longitude'], 39.25);
+      expect(sent['operating_hours'], isNotNull);
+      // Manager cannot send code or status
+      expect(sent.containsKey('code'), isFalse);
+      expect(sent.containsKey('status'), isFalse);
+    });
+
+    test('omits operating_hours when null', () async {
+      final adapter = _CapturingAdapter(
+        statusCode: 200,
+        body: _successEnvelope(_branchJson(id: 5)),
+      );
+      final repo = BranchRepository(dio: _dioWith(adapter));
+
+      await repo.updateMyBranch(
+        name: 'X',
+        address: 'Y',
+        latitude: 0,
+        longitude: 0,
+      );
+
+      final sent = adapter.lastRequest!.data as Map<String, dynamic>;
+      expect(sent.containsKey('operating_hours'), isFalse);
+    });
+
+    test('maps 422 field errors', () async {
+      final adapter = _CapturingAdapter(
+        statusCode: 422,
+        body: {
+          'success': false,
+          'message': 'Validation failed.',
+          'errors': {
+            'address': ['The address field must be at least 5 characters.'],
+          },
+        },
+      );
+      final repo = BranchRepository(dio: _dioWith(adapter));
+
+      final result = await repo.updateMyBranch(
+        name: 'X',
+        address: 'Y',
+        latitude: 0,
+        longitude: 0,
+      );
+      expect(result, isA<ApiFailure>());
+      expect(
+        result.failureOrNull!.fieldErrors['address'],
+        contains('The address field must be at least 5 characters.'),
+      );
+    });
+  });
 }
