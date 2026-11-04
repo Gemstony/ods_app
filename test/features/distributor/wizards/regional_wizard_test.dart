@@ -15,6 +15,10 @@ import 'package:ods_app/features/distributor/presentation/wizards/new_regional_d
 import 'package:ods_app/shared/providers/auth_provider.dart';
 import 'package:ods_app/shared/providers/repository_providers.dart';
 
+// ─────────────────────────────────────────────────────────────────────
+// Test helpers
+// ─────────────────────────────────────────────────────────────────────
+
 void _useLargeViewport(WidgetTester tester) {
   tester.view.physicalSize = const Size(800, 2400);
   tester.view.devicePixelRatio = 1.0;
@@ -106,6 +110,8 @@ Delivery _defaultDelivery() => Delivery(
       currency: 'TZS',
     );
 
+/// Pushes the wizard from a stub host so `Navigator.pop()` on success
+/// has a route to return to. (Same pattern as 7.3/7.4's fixups.)
 class _AutoPushHost extends StatefulWidget {
   const _AutoPushHost();
 
@@ -168,19 +174,27 @@ Future<void> _openWizard(
   await tester.pumpAndSettle();
 }
 
-/// Walks from step 1 through step 4, leaving the wizard on the review step.
-Future<void> _walkToReview(
-  WidgetTester tester, {
-  double fare = 3500,
-}) async {
-  // Step 1: select branch → step 2
+/// Walks from step 0 (Branch) up to [targetStep], filling valid data for
+/// every step before it and leaving the wizard AT [targetStep].
+///
+/// - targetStep 0 → no navigation (default state after `_openWizard`)
+/// - targetStep 1 → at Order
+/// - targetStep 2 → at Recipient
+/// - targetStep 3 → at Fare
+/// - targetStep 4 → at Review (preview loaded)
+Future<void> _goToStep(WidgetTester tester, int targetStep) async {
+  if (targetStep <= 0) return;
+
+  // ─── Step 0 → 1 (Branch → Order) ────────────────────────────
   await tester.tap(find.text('Kariakoo Branch'));
   await tester.pump();
   await tester.tap(find.widgetWithText(ElevatedButton, 'Next'));
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 100));
 
-  // Step 2: enter EXGO ID → step 3
+  if (targetStep == 1) return;
+
+  // ─── Step 1 → 2 (Order → Recipient) ─────────────────────────
   await tester.enterText(
     find.widgetWithText(TextFormField, 'Order ID 1'),
     'EXGO-REG-1',
@@ -190,7 +204,9 @@ Future<void> _walkToReview(
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 100));
 
-  // Step 3: recipient + destination → step 4
+  if (targetStep == 2) return;
+
+  // ─── Step 2 → 3 (Recipient → Fare) ──────────────────────────
   await tester.enterText(
     find.widgetWithText(TextFormField, 'Recipient name'),
     'John Arusha',
@@ -216,25 +232,33 @@ Future<void> _walkToReview(
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 100));
 
-  // Step 4: enter fare → step 5
+  if (targetStep == 3) return;
+
+  // ─── Step 3 → 4 (Fare → Review) ─────────────────────────────
   await tester.enterText(
     find.widgetWithText(TextFormField, 'Transport fare (TZS)'),
-    fare.toInt().toString(),
+    '3500',
   );
   await tester.pump();
   await tester.tap(find.widgetWithText(ElevatedButton, 'Review'));
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 100));
 
-  // Let preview load on step 5
+  // Let the preview load on the review step (fake repo completes on
+  // the next microtask; extra pump settles the loading indicator).
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 200));
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// Tests
+// ─────────────────────────────────────────────────────────────────────
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(AppConfig.initialize);
 
+  // ─── Test 1: Step 1 (Branch) renders ────────────────────────
   testWidgets('renders step 1 (Branch) initially', (tester) async {
     _useLargeViewport(tester);
     await _openWizard(tester);
@@ -244,26 +268,15 @@ void main() {
     expect(find.text('Kariakoo Branch'), findsOneWidget);
   });
 
+  // ─── Test 2: Recipient step validates all 5 fields ─────────
   testWidgets('recipient step validates all five fields', (tester) async {
     _useLargeViewport(tester);
     await _openWizard(tester);
+    await _goToStep(tester, 2);
 
-    // Navigate to step 3 (Recipient)
-    await tester.tap(find.text('Kariakoo Branch'));
-    await tester.pump();
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Next'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'Order ID 1'),
-      'EXGO-REG-1',
-    );
-    await tester.pump();
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Next'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-
+    // Confirm we're at the recipient step before testing validation
     expect(find.text('Step 3 of 5'), findsOneWidget);
+    expect(find.text('Who is receiving the products?'), findsOneWidget);
 
     // Submit empty
     await tester.tap(find.widgetWithText(ElevatedButton, 'Next'));
@@ -279,54 +292,20 @@ void main() {
     );
   });
 
-  testWidgets('fare step validates fare is a non-negative number',
+  // ─── Test 3: Fare step shows two-charge banner + validates ──
+  testWidgets('fare step shows two-charge banner and validates fare',
       (tester) async {
     _useLargeViewport(tester);
     await _openWizard(tester);
-
-    // Navigate to step 4 (Fare)
-    await tester.tap(find.text('Kariakoo Branch'));
-    await tester.pump();
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Next'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'Order ID 1'),
-      'EXGO-REG-1',
-    );
-    await tester.pump();
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Next'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'Recipient name'),
-      'John',
-    );
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'Recipient phone'),
-      '0762345678',
-    );
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'Region'),
-      'Arusha',
-    );
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'District'),
-      'Arusha City',
-    );
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'Bus stop / collection point'),
-      'Nairobi Road',
-    );
-    await tester.pump();
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Next'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await _goToStep(tester, 3);
 
     expect(find.text('Step 4 of 5'), findsOneWidget);
+    // The banner educates the distributor before they enter a fare.
     expect(find.text('Two separate charges'), findsOneWidget);
+    expect(find.textContaining('ODS delivery fee'), findsWidgets);
+    expect(find.textContaining('Bus/cargo fare'), findsWidgets);
 
-    // Submit empty
+    // Submit empty → the fare-specific error appears
     await tester.tap(find.widgetWithText(ElevatedButton, 'Review'));
     await tester.pumpAndSettle();
 
@@ -334,45 +313,56 @@ void main() {
       find.text('Transport fare is required (enter 0 if none).'),
       findsOneWidget,
     );
+    // Still on step 4 — didn't advance
+    expect(find.text('Step 4 of 5'), findsOneWidget);
   });
 
-  testWidgets('review shows two charges separately + total', (tester) async {
+  // ─── Test 4: Review shows the two charges separately ────────
+  testWidgets('review shows ODS fee + bus fare separately + total',
+      (tester) async {
     _useLargeViewport(tester);
     await _openWizard(tester);
-    await _walkToReview(tester, fare: 3500);
+    await _goToStep(tester, 4);
 
     expect(find.text('Step 5 of 5'), findsOneWidget);
+
+    // Charges section header
     expect(find.text('Charges'), findsOneWidget);
+
+    // The two charges are shown as distinct rows
     expect(find.text('ODS delivery fee'), findsOneWidget);
     expect(find.text('Bus / cargo transport fare'), findsOneWidget);
     expect(find.text('Total payable'), findsOneWidget);
 
-    // Verify the two charges are shown separately
+    // And their values:
     expect(find.text('TZS 2000'), findsWidgets); // ODS fee
     expect(find.text('TZS 3500'), findsWidgets); // bus fare
     expect(find.text('TZS 5500'), findsWidgets); // total
   });
 
+  // ─── Test 5: Full flow ──────────────────────────────────────
   testWidgets('full flow: complete all steps → regional delivery created',
       (tester) async {
     _useLargeViewport(tester);
     final repo = _FakeDeliveryRepo();
     await _openWizard(tester, deliveryRepo: repo);
-    await _walkToReview(tester, fare: 3500);
+    await _goToStep(tester, 4);
 
-    // Verify preview was requested with Regional-specific input
+    // ─── Preview was called with the right input ────────────
     expect(repo.capturedPreviewInput, isNotNull);
-    expect(repo.capturedPreviewInput!.serviceType, ServiceType.regional);
-    expect(repo.capturedPreviewInput!.pickupBranchId, 5);
-    expect(repo.capturedPreviewInput!.busCargoFare, 3500);
-    expect(repo.capturedPreviewInput!.destinationRegion, 'Arusha');
+    final previewInput = repo.capturedPreviewInput!;
+    expect(previewInput.serviceType, ServiceType.regional);
+    expect(previewInput.pickupBranchId, 5);
+    expect(previewInput.destinationRegion, 'Arusha');
+    expect(previewInput.destinationDistrict, 'Arusha City');
+    expect(previewInput.busCargoFare, 3500);
 
-    // Submit
+    // ─── Submit ─────────────────────────────────────────────
     await tester.tap(find.widgetWithText(ElevatedButton, 'Submit & pay'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    // Verify create was called with all collected Regional fields
+    // ─── Create was called once with all collected data ─────
     expect(repo.createCallCount, 1);
     final captured = repo.capturedCreateInput!;
     expect(captured.serviceType, ServiceType.regional);
@@ -386,7 +376,8 @@ void main() {
     expect(captured.destinationBusStop, 'Nairobi Road Station');
     expect(captured.busCargoFare, 3500);
 
-    // Wizard popped
+    // ─── Wizard popped ──────────────────────────────────────
+    // Explicit pumps — same pattern as 7.3/7.4 fixups to avoid hangs.
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.byType(NewRegionalDeliveryWizard), findsNothing);

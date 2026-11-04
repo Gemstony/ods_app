@@ -14,8 +14,9 @@ import 'steps/regional_review_step.dart';
 /// 5-step wizard for creating a Regional delivery.
 ///
 /// Steps:
-///   0. Pickup branch (reused from Receive)
-///   1. Order details (EXGO or WhatsApp) — no contact phone
+///   0. Pickup branch         (reused from Receive — 7.3)
+///   1. Order details         (reused from Receive — order IDs only,
+///                             no contact phone, per 7.4's flag)
 ///   2. Recipient + destination region/district/bus stop
 ///   3. Bus/cargo transport fare
 ///   4. Review with two-charge breakdown + submit
@@ -23,6 +24,8 @@ import 'steps/regional_review_step.dart';
 /// Ends with a `pending_payment` delivery ready for Phase 11's payment
 /// flow. The bus cargo fare is captured now and stored on the delivery
 /// — the payment split is a Phase 11 concern.
+///
+/// Pops with the created `Delivery` on success.
 class NewRegionalDeliveryWizard extends StatefulWidget {
   const NewRegionalDeliveryWizard({super.key});
 
@@ -63,7 +66,8 @@ class _NewRegionalDeliveryWizardState
     required List<DeliveryItemInput> items,
     required String pickupContactPhone,
   }) {
-    // pickupContactPhone intentionally ignored for Regional
+    // pickupContactPhone intentionally ignored for Regional — the
+    // recipient phone (collected in step 2) is the coordination number.
     setState(() {
       _items = items;
       _step = 2;
@@ -140,6 +144,7 @@ class _NewRegionalDeliveryWizardState
         ),
       1 => OrderDetailsStep(
           serviceType: ServiceType.regional,
+          showContactPhone: false,
           onSubmitted: _onOrderSubmitted,
           onBack: _onBack,
         ),

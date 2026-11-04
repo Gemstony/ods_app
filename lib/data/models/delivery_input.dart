@@ -38,7 +38,8 @@ class DeliveryItemInput {
 ///
 ///   Receive:  pickupBranchId ✓, pickupContactPhone ✓, recipient ✗
 ///   Send:     pickupBranchId ✗, pickupAddress + coords ✓, recipient ✓
-///   Regional: pickupBranchId ✓, destinationRegion/district/busStop ✓, recipient ✓
+///   Regional: pickupBranchId ✓, destinationRegion/district/busStop ✓,
+///             recipient ✓, busCargoFare ✓
 ///
 /// Validation of which fields are required per service is enforced by the
 /// backend's FormRequest. The Flutter UI validates the same fields via
@@ -62,10 +63,12 @@ class CreateDeliveryInput {
 
   final String? recipientName;
   final String? recipientPhone;
+
   /// Regional-only: the amount charged by the bus/cargo transport
   /// provider. Separate from the ODS delivery fee. Required by the
-  /// backend for Regional deliveries; ignored for Receive/Send.
+  /// backend for Regional deliveries; omitted for Receive/Send.
   final double? busCargoFare;
+
   final String? notes;
 
   const CreateDeliveryInput({
@@ -119,7 +122,8 @@ class CreateDeliveryInput {
 ///
 /// Minimal data needed for the backend to compute the fee: service type,
 /// pickup branch (for distance baseline) or pickup coords (for Send),
-/// destination coords, and whether a reward discount should apply.
+/// destination coords/region, bus cargo fare (Regional), and whether a
+/// reward discount should apply.
 class PricePreviewInput {
   final ServiceType serviceType;
   final int? pickupBranchId;
@@ -129,7 +133,11 @@ class PricePreviewInput {
   final double? destinationLongitude;
   final String? destinationRegion;
   final String? destinationDistrict;
-   final double? busCargoFare;
+
+  /// Regional-only: the estimated bus/cargo fare to include in the
+  /// preview total. Ignored for Receive/Send. Defaults to null (omitted);
+  /// the backend treats absent as 0.
+  final double? busCargoFare;
 
   /// Set to true when the distributor has an active tier-1 or tier-2
   /// reward and wants the discount applied. Backend recomputes eligibility.

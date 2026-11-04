@@ -15,9 +15,10 @@ import '../widgets/wizard_bottom_bar.dart';
 /// Regional step 5: review + submit.
 ///
 /// Shows ODS fee and bus fare as separate line items, then the total.
-/// Matches the doc: "Regional Delivery must show the total payable
-/// amount: ODS delivery fee + bus/cargo transport fare before the
-/// distributor confirms the request."
+/// Matches the ODS document:
+///   "Regional Delivery must show the total payable amount:
+///    ODS delivery fee + bus/cargo transport fare before the
+///    distributor confirms the request."
 class RegionalReviewStep extends ConsumerStatefulWidget {
   final Branch branch;
   final List<DeliveryItemInput> items;
@@ -72,7 +73,7 @@ class _RegionalReviewStepState extends ConsumerState<RegionalReviewStep> {
         destinationRegion: widget.destinationRegion,
         destinationDistrict: widget.destinationDistrict,
         busCargoFare: widget.busCargoFare,
-        applyReward: false,
+        applyReward: false, // Discounts land in Phase 13
       ),
     );
     if (!mounted) return;
@@ -263,11 +264,13 @@ class _ReviewContent extends StatelessWidget {
           ],
         ),
         const SizedBox(height: AppSpacing.sm),
+
+        // ─── Two-charge breakdown ───────────────────────────
         _Surface(
           title: 'Charges',
           icon: Icons.payments_outlined,
           children: [
-            // ─── ODS fee ──────────────────────────────────
+            // ODS fee
             _PriceRow(
               label: 'ODS delivery fee',
               value: 'TZS ${preview.odsDeliveryFee.toStringAsFixed(0)}',
@@ -281,13 +284,12 @@ class _ReviewContent extends StatelessWidget {
               ),
             ],
 
-            // ─── Bus fare ─────────────────────────────────
+            // Bus fare
             if (preview.busCargoFare != null) ...[
               const SizedBox(height: AppSpacing.xxs),
               _PriceRow(
                 label: 'Bus / cargo transport fare',
-                value:
-                    'TZS ${preview.busCargoFare!.toStringAsFixed(0)}',
+                value: 'TZS ${preview.busCargoFare!.toStringAsFixed(0)}',
               ),
             ],
 
