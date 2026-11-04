@@ -23,7 +23,6 @@ import 'package:ods_app/data/repositories/delivery_repository.dart';
 import 'package:ods_app/data/models/branch.dart';
 import 'package:ods_app/data/repositories/branch_repository.dart';
 import 'package:ods_app/data/models/distributor_dashboard_kpis.dart';
-import 'package:ods_app/data/models/distributor_dashboard_kpis.dart';
 import 'package:ods_app/data/repositories/reward_repository.dart';
 
 /// Dashboard repository fake: returns empty data without any network
@@ -248,7 +247,8 @@ void main() {
     }
   });
 
-  testWidgets('Distributor FAB opens service picker sheet', (tester) async {
+  testWidgets('Distributor FAB opens service picker with all 3 services',
+      (tester) async {
     await _pumpDashboard(tester, const DistributorDashboardScreen());
 
     // Tap the FAB
@@ -260,10 +260,12 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
-    // Sheet content is visible
-    expect(find.text('Choose a service to continue.'), findsOneWidget);
+    // Sheet content is visible — copy matches service_picker_sheet.dart.
+    expect(find.text('Choose the service you need.'), findsOneWidget);
+    // All 3 service cards present (7.5.4 completion check).
     expect(find.text('Receive'), findsOneWidget);
     expect(find.text('Send'), findsOneWidget);
+    expect(find.text('Regional'), findsOneWidget);
   });
 
   testWidgets('tapping a tab updates the selected index', (tester) async {

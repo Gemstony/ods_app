@@ -4,6 +4,7 @@ import '../../../../data/models/delivery.dart';
 import '../../../../widgets/coming_soon_tab.dart';
 import '../../../../widgets/role_dashboard_scaffold.dart';
 import '../wizards/new_receive_delivery_wizard.dart';
+import '../wizards/new_regional_delivery_wizard.dart';
 import '../wizards/new_send_delivery_wizard.dart';
 import '../wizards/widgets/service_picker_sheet.dart';
 import 'distributor_history_tab.dart';
@@ -26,19 +27,22 @@ class DistributorDashboardScreen extends StatelessWidget {
             builder: (fabContext) => FloatingActionButton.extended(
               onPressed: () async {
                 // Ask which service the distributor wants.
-                final choice = await showServicePickerSheet(fabContext);
+                final choice = await ServicePickerSheet.show(fabContext);
                 if (choice == null || !fabContext.mounted) return;
 
-                // Route to the correct wizard.
+                // Route to the correct wizard. Switch is exhaustive over
+                // DeliveryServiceChoice (3 values), so `wizard` is
+                // non-nullable — no `!` needed.
                 final Widget wizard = switch (choice) {
                   DeliveryServiceChoice.receive =>
                     const NewReceiveDeliveryWizard(),
                   DeliveryServiceChoice.send =>
                     const NewSendDeliveryWizard(),
+                  DeliveryServiceChoice.regional =>
+                    const NewRegionalDeliveryWizard(),
                 };
 
-                final delivery =
-                    await Navigator.of(fabContext).push<Delivery>(
+                final delivery = await Navigator.of(fabContext).push<Delivery>(
                   MaterialPageRoute(builder: (_) => wizard),
                 );
                 if (delivery != null && fabContext.mounted) {
