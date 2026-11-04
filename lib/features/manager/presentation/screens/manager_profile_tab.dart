@@ -95,7 +95,7 @@ class _BranchHeaderCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          CircleAvatar(
+          const CircleAvatar(
             radius: 28,
             backgroundColor: AppColors.primary,
             child: const Icon(

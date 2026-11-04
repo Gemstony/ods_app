@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../../data/models/delivery.dart';
-import '../../../../widgets/coming_soon_tab.dart';
 import '../../../../widgets/role_dashboard_scaffold.dart';
 import '../wizards/new_receive_delivery_wizard.dart';
 import '../wizards/new_regional_delivery_wizard.dart';
@@ -9,6 +8,7 @@ import '../wizards/new_send_delivery_wizard.dart';
 import '../wizards/widgets/service_picker_sheet.dart';
 import 'distributor_history_tab.dart';
 import 'distributor_home_tab.dart';
+import 'distributor_profile_tab.dart';
 import 'distributor_rewards_tab.dart';
 
 class DistributorDashboardScreen extends StatelessWidget {
@@ -74,11 +74,7 @@ class DistributorDashboardScreen extends StatelessWidget {
         const RoleDashboardTab(
           label: 'Profile',
           icon: Icons.person_rounded,
-          body: ComingSoonTab(
-            title: 'Profile & settings',
-            phase: '7',
-            icon: Icons.person_rounded,
-          ),
+          body: DistributorProfileTab(),
         ),
       ],
     );
