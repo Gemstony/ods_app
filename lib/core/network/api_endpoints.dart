@@ -11,7 +11,6 @@ class ApiEndpoints {
   // ─── Diagnostics ─────────────────────────────────────────────────
   static const String health = '/health';
 
-  // ─── Auth (populated in Phase 3) ─────────────────────────────────
   // ─── Auth ────────────────────────────────────────────────────────
   static const String login = '/auth/login';
   static const String logout = '/auth/logout';
@@ -35,18 +34,17 @@ class ApiEndpoints {
   // ─── Distributor (populated in Phase 7) ──────────────────────────
   static const String distributorDeliveries = '/distributor/deliveries';
   static const String distributorPricePreview = '/distributor/deliveries/price-preview';
-    // ─── Distributor ──────────────────────────────────────────
   static const String distributorBranches = '/distributor/branches';
 
-  // ─── Rider (populated in Phase 8) ────────────────────────────────
-  static const String riderTasks = '/rider/tasks';
+  // ─── Rider (populated in Phase 8.1/8.2) ──────────────────────────
+  static const String riderDashboard = '/rider/dashboard';
+  static const String riderDeliveries = '/rider/deliveries';
   static const String riderEarnings = '/rider/earnings';
 
   // ─── Receiver (populated in Phase 9) ─────────────────────────────
   static const String receiverPackages = '/receiver/packages';
 
   // ─── Payments (populated in Phase 11) ────────────────────────────
-  // ─── Payments ────────────────────────────────────────────────────
   static const String payments = '/payments';
   static const String paymentsInitiate = '/payments/initiate';
 

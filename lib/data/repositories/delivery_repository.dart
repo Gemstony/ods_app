@@ -13,9 +13,6 @@ import '../models/delivery_input.dart';
 /// single repository is simpler to wire. Backend authorization ensures
 /// a Distributor can only call `/distributor/*`, a Rider only `/rider/*`,
 /// and so on.
-///
-/// Phase 7 builds the Distributor-facing screens. Phase 6 builds the
-/// Manager branch view. Phase 8 builds the Rider flow.
 class DeliveryRepository {
   final Dio _dio;
 
@@ -26,10 +23,6 @@ class DeliveryRepository {
   // ────────────────────────────────────────────────────────
 
   /// GET /distributor/deliveries
-  ///
-  /// Filters are optional. Passing `null` means "no filter for this
-  /// dimension". Backend supports `status`, `service_type`, and pagination
-  /// (`limit`, `offset`).
   Future<ApiResult<List<Delivery>>> listMine({
     DeliveryStatus? status,
     ServiceType? serviceType,
@@ -63,10 +56,6 @@ class DeliveryRepository {
   }
 
   /// POST /distributor/deliveries
-  ///
-  /// Creates the delivery and returns it in `pending_payment` status.
-  /// The caller follows up with `PaymentRepository.initiate()` (Phase 4.5)
-  /// to actually pay.
   Future<ApiResult<Delivery>> create(CreateDeliveryInput input) {
     return ApiResult.guard(() async {
       final response = await _dio.post<Map<String, dynamic>>(
@@ -78,10 +67,6 @@ class DeliveryRepository {
   }
 
   /// POST /distributor/deliveries/price-preview
-  ///
-  /// Returns the fee breakdown without creating a delivery. Used by the
-  /// "New delivery" form to show the distributor what they'll be charged
-  /// before they confirm.
   Future<ApiResult<PricePreviewResult>> pricePreview(
     PricePreviewInput input,
   ) {
@@ -99,15 +84,6 @@ class DeliveryRepository {
   // ────────────────────────────────────────────────────────
 
   /// GET /manager/deliveries
-  ///
-  /// Branch-scoped by the backend's `role:manager` middleware. Accepts
-  /// a list of statuses (backend supports comma-separated), so callers
-  /// can express "in transit" as `[picked_up, dispatched]` in one
-  /// round-trip. Empty/null list = no status filter.
-  ///
-  /// Uses the standard `per_page` / `page` pagination that the manager
-  /// deliveries endpoint expects (`listMine` uses `limit`/`offset`
-  /// because the distributor endpoint uses that shape).
   Future<ApiResult<List<Delivery>>> listForBranch({
     List<DeliveryStatus>? statuses,
     ServiceType? serviceType,
@@ -132,8 +108,6 @@ class DeliveryRepository {
   }
 
   /// GET /manager/deliveries/{id}
-  ///
-  /// Branch-scoped single delivery. Returns 404 for cross-branch.
   Future<ApiResult<Delivery>> getForBranch(int id) {
     return ApiResult.guard(() async {
       final response = await _dio.get<Map<String, dynamic>>(
@@ -143,14 +117,7 @@ class DeliveryRepository {
     });
   }
 
-    /// GET /manager/packages
-  ///
-  /// Returns deliveries physically at the manager's branch — status is
-  /// `paid` or `batched` and service_type isn't `send`. Each delivery
-  /// carries a server-computed `hours_at_branch` field.
-  ///
-  /// Ordered oldest-first (server-side) so aging packages surface at
-  /// the top of the list.
+  /// GET /manager/packages
   Future<ApiResult<List<Delivery>>> listAtBranch() {
     return ApiResult.guard(() async {
       final response = await _dio.get<Map<String, dynamic>>(
@@ -161,23 +128,30 @@ class DeliveryRepository {
       return _extractList(data, Delivery.fromJson);
     });
   }
-  
+
   // ────────────────────────────────────────────────────────
   // Rider-facing (Phase 8)
   // ────────────────────────────────────────────────────────
 
-  /// GET /rider/tasks
+  /// GET /rider/deliveries
   ///
-  /// Returns the rider's currently assigned tasks. No pagination by
-  /// default — a rider has few active tasks at a time.
+  /// Filters mirror the backend (Phase 8.1):
+  ///   - statuses: comma-separated list, e.g. `[accepted, picked_up]`
+  ///   - serviceType: single type
+  ///   - perPage: caps at 100 server-side
   Future<ApiResult<List<Delivery>>> listForRider({
-    DeliveryStatus? status,
+    List<DeliveryStatus>? statuses,
+    ServiceType? serviceType,
+    int? perPage,
   }) {
     return ApiResult.guard(() async {
       final response = await _dio.get<Map<String, dynamic>>(
-        ApiEndpoints.riderTasks,
+        ApiEndpoints.riderDeliveries,
         queryParameters: {
-          if (status != null) 'status': status.name,
+          if (statuses != null && statuses.isNotEmpty)
+            'status': statuses.map((s) => s.name).join(','),
+          if (serviceType != null) 'service_type': serviceType.name,
+          if (perPage != null) 'per_page': perPage,
         },
       );
 
@@ -186,59 +160,47 @@ class DeliveryRepository {
     });
   }
 
-  /// GET /rider/tasks/{id}
-  Future<ApiResult<Delivery>> getRiderTask(int id) {
+  /// GET /rider/deliveries/{id}
+  Future<ApiResult<Delivery>> getRiderDelivery(int id) {
     return ApiResult.guard(() async {
       final response = await _dio.get<Map<String, dynamic>>(
-        '${ApiEndpoints.riderTasks}/$id',
+        '${ApiEndpoints.riderDeliveries}/$id',
       );
       return Delivery.fromJson(_extractData(response));
     });
   }
 
-  /// PATCH /rider/tasks/{id}/accept
-  ///
-  /// Marks the delivery as `accepted`. Backend verifies:
-  ///   - The rider owns this task
-  ///   - The task is still in `assigned` state
-  ///   - The assignment hasn't expired
-  Future<ApiResult<Delivery>> acceptTask(int id) {
+  /// POST /rider/deliveries/{id}/accept
+  Future<ApiResult<Delivery>> acceptRiderDelivery(int id) {
     return ApiResult.guard(() async {
-      final response = await _dio.patch<Map<String, dynamic>>(
-        '${ApiEndpoints.riderTasks}/$id/accept',
+      final response = await _dio.post<Map<String, dynamic>>(
+        '${ApiEndpoints.riderDeliveries}/$id/accept',
       );
       return Delivery.fromJson(_extractData(response));
     });
   }
 
-  /// PATCH /rider/tasks/{id}/pickup
-  ///
-  /// Marks the delivery as `picked_up`. Typically requires a Receiver to
-  /// confirm the handover at the branch (Phase 9). The exact contract is
-  /// finalized in Phase 8, so this method may gain a `verificationCode`
-  /// parameter later.
-  Future<ApiResult<Delivery>> pickupTask(int id) {
+  /// POST /rider/deliveries/{id}/pickup
+  Future<ApiResult<Delivery>> pickupRiderDelivery(int id) {
     return ApiResult.guard(() async {
-      final response = await _dio.patch<Map<String, dynamic>>(
-        '${ApiEndpoints.riderTasks}/$id/pickup',
+      final response = await _dio.post<Map<String, dynamic>>(
+        '${ApiEndpoints.riderDeliveries}/$id/pickup',
       );
       return Delivery.fromJson(_extractData(response));
     });
   }
 
-  /// PATCH /rider/tasks/{id}/deliver
+  /// POST /rider/deliveries/{id}/deliver
   ///
-  /// Marks the delivery as `delivered`. Requires the DISTRIBUTOR_CODE or
-  /// RECIPIENT_CODE the recipient shares with the rider. The code is
-  /// verified **server-side** — this method only sends it.
-  Future<ApiResult<Delivery>> deliverTask({
-    required int id,
-    required String verificationCode,
-  }) {
+  /// Phase 8.1 ships this as a plain status transition — no verification
+  /// code yet. Phase 12 will add a `verification_code` body field once
+  /// the code-handover flow exists. When that lands, add a
+  /// `verificationCode` parameter here; the widget layer already calls
+  /// this via the rider controller, not directly.
+  Future<ApiResult<Delivery>> deliverRiderDelivery(int id) {
     return ApiResult.guard(() async {
-      final response = await _dio.patch<Map<String, dynamic>>(
-        '${ApiEndpoints.riderTasks}/$id/deliver',
-        data: {'verification_code': verificationCode},
+      final response = await _dio.post<Map<String, dynamic>>(
+        '${ApiEndpoints.riderDeliveries}/$id/deliver',
       );
       return Delivery.fromJson(_extractData(response));
     });

@@ -540,92 +540,63 @@ void main() {
       );
       final repo = DeliveryRepository(dio: _dioWith(adapter));
 
-      final result = await repo.listForRider(status: DeliveryStatus.assigned);
+      final result = await repo.listForRider(statuses: [DeliveryStatus.assigned]);
 
       expect(result.dataOrNull!.first.status, DeliveryStatus.assigned);
-      expect(adapter.lastRequest!.path, '/rider/tasks');
+      expect(adapter.lastRequest!.path, '/rider/deliveries');
       expect(adapter.lastRequest!.queryParameters['status'], 'assigned');
     });
   });
 
-  // ─── acceptTask() ──────────────────────────────────────────
-  group('DeliveryRepository.acceptTask', () {
-    test('sends PATCH and parses updated delivery', () async {
+  // ─── acceptRiderDelivery() ──────────────────────────────────────────
+  group('DeliveryRepository.acceptRiderDelivery', () {
+    test('sends POST and parses updated delivery', () async {
       final adapter = _CapturingAdapter(
         statusCode: 200,
         body: _successEnvelope(_deliveryJson(status: 'accepted')),
       );
       final repo = DeliveryRepository(dio: _dioWith(adapter));
 
-      final result = await repo.acceptTask(42);
+      final result = await repo.acceptRiderDelivery(42);
 
       expect(result, isA<ApiSuccess<Delivery>>());
       expect(result.dataOrNull!.status, DeliveryStatus.accepted);
-      expect(adapter.lastRequest!.path, '/rider/tasks/42/accept');
-      expect(adapter.lastRequest!.method, 'PATCH');
+      expect(adapter.lastRequest!.path, '/rider/deliveries/42/accept');
+      expect(adapter.lastRequest!.method, 'POST');
     });
   });
 
-  // ─── pickupTask() ──────────────────────────────────────────
-  group('DeliveryRepository.pickupTask', () {
-    test('sends PATCH and parses picked_up delivery', () async {
+  // ─── pickupRiderDelivery() ──────────────────────────────────────────
+  group('DeliveryRepository.pickupRiderDelivery', () {
+    test('sends POST and parses picked_up delivery', () async {
       final adapter = _CapturingAdapter(
         statusCode: 200,
         body: _successEnvelope(_deliveryJson(status: 'picked_up')),
       );
       final repo = DeliveryRepository(dio: _dioWith(adapter));
 
-      final result = await repo.pickupTask(42);
+      final result = await repo.pickupRiderDelivery(42);
 
       expect(result.dataOrNull!.status, DeliveryStatus.picked_up);
-      expect(adapter.lastRequest!.path, '/rider/tasks/42/pickup');
+      expect(adapter.lastRequest!.path, '/rider/deliveries/42/pickup');
+      expect(adapter.lastRequest!.method, 'POST');
     });
   });
 
-  // ─── deliverTask() ─────────────────────────────────────────
-  group('DeliveryRepository.deliverTask', () {
-    test('sends verification code with PATCH', () async {
+  // ─── deliverRiderDelivery() ─────────────────────────────────────────
+  group('DeliveryRepository.deliverRiderDelivery', () {
+    test('sends POST and parses delivered delivery', () async {
       final adapter = _CapturingAdapter(
         statusCode: 200,
         body: _successEnvelope(_deliveryJson(status: 'delivered')),
       );
       final repo = DeliveryRepository(dio: _dioWith(adapter));
 
-      final result = await repo.deliverTask(
-        id: 42,
-        verificationCode: '123456',
-      );
+      final result = await repo.deliverRiderDelivery(42);
 
       expect(result.dataOrNull!.status, DeliveryStatus.delivered);
-      expect(adapter.lastRequest!.path, '/rider/tasks/42/deliver');
-      expect(adapter.lastRequest!.method, 'PATCH');
-      final sent = adapter.lastRequest!.data as Map<String, dynamic>;
-      expect(sent['verification_code'], '123456');
-    });
-
-    test('returns validation failure on wrong code (422)', () async {
-      final adapter = _CapturingAdapter(
-        statusCode: 422,
-        body: {
-          'success': false,
-          'message': 'Validation failed.',
-          'errors': {
-            'verification_code': ['The verification code is invalid.'],
-          },
-        },
-      );
-      final repo = DeliveryRepository(dio: _dioWith(adapter));
-
-      final result = await repo.deliverTask(
-        id: 42,
-        verificationCode: '999999',
-      );
-
-      expect(result, isA<ApiFailure>());
-      expect(
-        result.failureOrNull!.fieldErrors['verification_code'],
-        contains('The verification code is invalid.'),
-      );
+      expect(adapter.lastRequest!.path, '/rider/deliveries/42/deliver');
+      expect(adapter.lastRequest!.method, 'POST');
     });
   });
 }

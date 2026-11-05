@@ -15,6 +15,7 @@ import 'package:dio/dio.dart';
 import 'package:ods_app/core/network/api_result.dart';
 import 'package:ods_app/data/models/dashboard_kpis.dart';
 import 'package:ods_app/data/models/manager_dashboard_kpis.dart';
+import 'package:ods_app/data/models/rider_dashboard_kpis.dart';
 import 'package:ods_app/data/repositories/dashboard_repository.dart';
 import 'package:ods_app/shared/providers/repository_providers.dart';
 import 'package:ods_app/data/repositories/staff_repository.dart';
@@ -25,9 +26,6 @@ import 'package:ods_app/data/repositories/branch_repository.dart';
 import 'package:ods_app/data/models/distributor_dashboard_kpis.dart';
 import 'package:ods_app/data/repositories/reward_repository.dart';
 
-/// Dashboard repository fake: returns empty data without any network
-/// call. Prevents the Owner / Manager home tabs from attempting real
-/// fetches during dashboard tab-structure tests.
 class _FakeDashboardRepo extends DashboardRepository {
   _FakeDashboardRepo() : super(dio: Dio());
 
@@ -42,6 +40,10 @@ class _FakeDashboardRepo extends DashboardRepository {
   @override
   Future<ApiResult<DistributorDashboardKpis>> getDistributorKpis() async =>
       ApiSuccess(DistributorDashboardKpis.empty());
+
+  @override
+  Future<ApiResult<RiderDashboardKpis>> getRiderKpis() async =>
+      ApiSuccess(RiderDashboardKpis.empty());
 }
 
 class _FakeRewardRepo extends RewardRepository {
@@ -105,6 +107,14 @@ class _FakeDeliveryRepo extends DeliveryRepository {
       const ApiSuccess<List<Delivery>>([]);
 
   @override
+  Future<ApiResult<List<Delivery>>> listForRider({
+    List<DeliveryStatus>? statuses,
+    ServiceType? serviceType,
+    int? perPage,
+  }) async =>
+      const ApiSuccess<List<Delivery>>([]);
+
+  @override
   Future<ApiResult<Delivery>> getForBranch(int id) async =>
       throw StateError('Not stubbed in dashboard tests');
 
@@ -146,9 +156,6 @@ class _FakeBranchRepo extends BranchRepository {
       ));
 }
 
-/// Minimal router that renders [dashboard] directly at /dashboard, and a
-/// stub at /login so the dashboard's AppBar logout action (which calls
-/// `context.go(RouteNames.login)`) doesn't throw during interaction tests.
 Widget _wrapDashboard(Widget dashboard) {
   final router = GoRouter(
     initialLocation: '/dashboard',
@@ -221,19 +228,17 @@ void main() {
       expect(find.text(label), findsWidgets);
     }
 
-    // New tab removed
     expect(find.text('New'), findsNothing);
 
-    // FAB present on the Home tab (wizard opens in Phase 7.3)
     expect(find.byType(FloatingActionButton), findsOneWidget);
     expect(find.text('New delivery'), findsOneWidget);
   });
 
-  testWidgets('Rider dashboard renders with 4 tabs', (tester) async {
+  testWidgets('Rider dashboard renders with 5 tabs', (tester) async {
     await _pumpDashboard(tester, const RiderDashboardScreen());
     final navBar = tester.widget<NavigationBar>(find.byType(NavigationBar));
-    expect(navBar.destinations.length, 4);
-    for (final label in ['Tasks', 'Active', 'Earnings', 'Profile']) {
+    expect(navBar.destinations.length, 5);
+    for (final label in ['Home', 'Tasks', 'Active', 'Earnings', 'Profile']) {
       expect(find.text(label), findsWidgets);
     }
   });
@@ -251,18 +256,13 @@ void main() {
       (tester) async {
     await _pumpDashboard(tester, const DistributorDashboardScreen());
 
-    // Tap the FAB
     await tester.tap(
       find.widgetWithText(FloatingActionButton, 'New delivery'),
     );
-    // Explicit pumps — sheet has a slide-in animation; avoid
-    // pumpAndSettle defensively.
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
-    // Sheet content is visible — copy matches service_picker_sheet.dart.
     expect(find.text('Choose the service you need.'), findsOneWidget);
-    // All 3 service cards present (7.5.4 completion check).
     expect(find.text('Receive'), findsOneWidget);
     expect(find.text('Send'), findsOneWidget);
     expect(find.text('Regional'), findsOneWidget);
