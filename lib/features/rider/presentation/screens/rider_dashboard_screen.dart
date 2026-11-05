@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../widgets/coming_soon_tab.dart';
 import '../../../../widgets/role_dashboard_scaffold.dart';
 import 'rider_active_tab.dart';
+import 'rider_earnings_tab.dart';
 import 'rider_home_tab.dart';
 import 'rider_tasks_tab.dart';
 
@@ -14,19 +15,19 @@ class RiderDashboardScreen extends StatelessWidget {
     return RoleDashboardScaffold(
       title: 'Delivery Agent',
       tabs: const [
-        // Home (8.2) — KPI overview + active task + recent
+        // Home (8.2)
         RoleDashboardTab(
           label: 'Home',
           icon: Icons.home_rounded,
           body: RiderHomeTab(),
         ),
-        // Tasks (8.3) — full list + accept flow
+        // Tasks (8.3)
         RoleDashboardTab(
           label: 'Tasks',
           icon: Icons.assignment_rounded,
           body: RiderTasksTab(),
         ),
-        // Active (8.4) — pickup + deliver
+        // Active (8.4)
         RoleDashboardTab(
           label: 'Active',
           icon: Icons.delivery_dining_rounded,
@@ -36,11 +37,7 @@ class RiderDashboardScreen extends StatelessWidget {
         RoleDashboardTab(
           label: 'Earnings',
           icon: Icons.payments_rounded,
-          body: ComingSoonTab(
-            title: 'Earnings & payouts',
-            phase: '8.5',
-            icon: Icons.payments_rounded,
-          ),
+          body: RiderEarningsTab(),
         ),
         // Profile (8.6)
         RoleDashboardTab(

@@ -80,6 +80,11 @@ class Earning {
   /// Null for `dispatcher_shift` (not tied to a single delivery).
   final int? deliveryId;
 
+  /// Backend `delivery.tracking_id`, when the earning is tied to a
+  /// delivery. Populated for rider earnings; null for adjustments and
+  /// dispatcher_shift rows.
+  final String? deliveryTrackingId;
+
   final EarningType type;
   final double amount;
   final String currency;
@@ -103,6 +108,7 @@ class Earning {
     required this.status,
     required this.earnedAt,
     this.deliveryId,
+    this.deliveryTrackingId,
     this.approvedBy,
     this.approvedAt,
     this.payoutId,
@@ -119,6 +125,7 @@ class Earning {
       userId: asInt(json['user_id']),
       deliveryId:
           json['delivery_id'] == null ? null : asInt(json['delivery_id']),
+      deliveryTrackingId: json['delivery_tracking_id'] as String?,
       type: EarningType.fromString(json['type'] as String),
       amount: asDouble(json['amount']),
       currency: json['currency'] as String? ?? 'TZS',
@@ -140,6 +147,7 @@ class Earning {
         'id': id,
         'user_id': userId,
         'delivery_id': deliveryId,
+        'delivery_tracking_id': deliveryTrackingId,
         'type': type.name,
         'amount': amount,
         'currency': currency,

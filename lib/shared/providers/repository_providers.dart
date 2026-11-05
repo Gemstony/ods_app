@@ -11,7 +11,7 @@ import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/pricing_config_repository.dart';
 import '../../data/repositories/finance_repository.dart';
 import '../../data/repositories/staff_repository.dart';
-
+import '../../data/repositories/earnings_repository.dart';
 
 /// Provides the app's [StaffRepository] (Manager-facing staff management).
 final staffRepositoryProvider = Provider<StaffRepository>(
@@ -34,7 +34,6 @@ final pricingConfigRepositoryProvider = Provider<PricingConfigRepository>(
 final userRepositoryProvider = Provider<UserRepository>(
   (ref) => UserRepository(),
 );
-
 
 /// Provides the app's [BranchRepository].
 ///
@@ -67,4 +66,9 @@ final rewardRepositoryProvider = Provider<RewardRepository>(
 /// Provides the app's [DashboardRepository].
 final dashboardRepositoryProvider = Provider<DashboardRepository>(
   (ref) => DashboardRepository(),
+);
+
+/// Provides the app's [EarningsRepository] (rider compensation ledger).
+final earningsRepositoryProvider = Provider<EarningsRepository>(
+  (ref) => EarningsRepository(),
 );
