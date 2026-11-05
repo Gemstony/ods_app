@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../widgets/coming_soon_tab.dart';
 import '../../../../widgets/role_dashboard_scaffold.dart';
 import 'rider_home_tab.dart';
+import 'rider_tasks_tab.dart';
 
 class RiderDashboardScreen extends StatelessWidget {
   const RiderDashboardScreen({super.key});
@@ -18,15 +19,11 @@ class RiderDashboardScreen extends StatelessWidget {
           icon: Icons.home_rounded,
           body: RiderHomeTab(),
         ),
-        // Tasks (Phase 8.3) — full list of assigned deliveries + accept
+        // Tasks (Phase 8.3) — full list + accept flow
         RoleDashboardTab(
           label: 'Tasks',
           icon: Icons.assignment_rounded,
-          body: ComingSoonTab(
-            title: 'Available tasks',
-            phase: '8.3',
-            icon: Icons.assignment_rounded,
-          ),
+          body: RiderTasksTab(),
         ),
         // Active (Phase 8.4) — pickup + deliver with code entry
         RoleDashboardTab(

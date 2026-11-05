@@ -34,9 +34,8 @@ class RiderHomeData {
 
   /// The three newest deliveries that are NOT the active task.
   ///
-  /// The active task is rendered in its own hero card, so showing it
-  /// again in "Recent activity" would duplicate the same tracking ID
-  /// on the same screen.
+  /// The active task renders in its own hero card, so including it here
+  /// would duplicate the same tracking ID on the same screen.
   List<Delivery> get recentDeliveries {
     final activeId = activeTask?.id;
     return deliveries
@@ -51,8 +50,6 @@ final riderHomeProvider = FutureProvider<RiderHomeData>((ref) async {
   final dashRepo = ref.watch(dashboardRepositoryProvider);
   final delRepo = ref.watch(deliveryRepositoryProvider);
 
-  // Kick both off before awaiting either — saves one round-trip worth
-  // of latency.
   final kpisFuture = dashRepo.getRiderKpis();
   final deliveriesFuture = delRepo.listForRider(perPage: 20);
 

@@ -163,7 +163,7 @@ void main() {
     expect(find.text('Pending'), findsOneWidget);
     // 15000 → "TZS 15.0k" (>= 10000 branch)
     expect(find.text('TZS 15.0k'), findsOneWidget);
-    // 5000  → "TZS 5000"  (< 10000 branch — the formatter's middle tier)
+    // 5000  → "TZS 5000"  (< 10000 branch)
     expect(find.text('TZS 5000'), findsOneWidget);
   });
 
@@ -192,7 +192,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Active task'), findsOneWidget);
-    // Active task appears exactly once — it must NOT be duplicated
+    // Active task appears exactly once — must NOT be duplicated
     // in the recent activity list.
     expect(find.text('ODS-ACTIVE-7'), findsOneWidget);
     expect(find.text('Jane Customer'), findsOneWidget);
@@ -238,11 +238,8 @@ void main() {
     )));
     await tester.pumpAndSettle();
 
-    // Active task hero shows the active delivery once
     expect(find.text('Active task'), findsOneWidget);
     expect(find.text('ODS-ACTIVE-7'), findsOneWidget);
-
-    // Recent activity shows the OTHER deliveries, not the active one again
     expect(find.text('Recent activity'), findsOneWidget);
     expect(find.text('ODS-RECENT-1'), findsOneWidget);
     expect(find.text('ODS-RECENT-2'), findsOneWidget);
