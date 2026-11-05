@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../../../widgets/coming_soon_tab.dart';
 import '../../../../widgets/role_dashboard_scaffold.dart';
 import 'rider_active_tab.dart';
 import 'rider_earnings_tab.dart';
 import 'rider_home_tab.dart';
+import 'rider_profile_tab.dart';
 import 'rider_tasks_tab.dart';
 
 class RiderDashboardScreen extends StatelessWidget {
@@ -43,11 +43,7 @@ class RiderDashboardScreen extends StatelessWidget {
         RoleDashboardTab(
           label: 'Profile',
           icon: Icons.person_rounded,
-          body: ComingSoonTab(
-            title: 'Rider profile',
-            phase: '8.6',
-            icon: Icons.person_rounded,
-          ),
+          body: RiderProfileTab(),
         ),
       ],
     );
