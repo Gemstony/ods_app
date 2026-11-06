@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:ods_app/core/config/app_config.dart';
 import 'package:ods_app/core/theme/app_theme.dart';
 import 'package:ods_app/data/models/auth/auth_user.dart';
+import 'package:ods_app/data/models/package_verify_result.dart';
 import 'package:ods_app/data/models/reward.dart';
 import 'package:ods_app/features/distributor/presentation/screens/distributor_dashboard_screen.dart';
 import 'package:ods_app/features/manager/presentation/screens/manager_dashboard_screen.dart';
@@ -113,6 +114,21 @@ class _FakeDeliveryRepo extends DeliveryRepository {
     int? perPage,
   }) async =>
       const ApiSuccess<List<Delivery>>([]);
+
+  @override
+  Future<ApiResult<List<Delivery>>> listReceiverPackages({
+    List<DeliveryStatus>? statuses,
+    int? perPage,
+  }) async =>
+      const ApiSuccess<List<Delivery>>([]);
+
+  @override
+  Future<ApiResult<PackageVerifyResult>> verifyReceiverPackage(int id) async =>
+      throw StateError('Not stubbed in dashboard tests');
+
+  @override
+  Future<ApiResult<Delivery>> releaseReceiverPackage(int id) async =>
+      throw StateError('Not stubbed in dashboard tests');
 
   @override
   Future<ApiResult<Delivery>> getForBranch(int id) async =>
@@ -229,7 +245,6 @@ void main() {
     }
 
     expect(find.text('New'), findsNothing);
-
     expect(find.byType(FloatingActionButton), findsOneWidget);
     expect(find.text('New delivery'), findsOneWidget);
   });

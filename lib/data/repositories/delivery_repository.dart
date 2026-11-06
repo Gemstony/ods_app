@@ -5,14 +5,10 @@ import '../../core/network/api_endpoints.dart';
 import '../../core/network/api_result.dart';
 import '../models/delivery.dart';
 import '../models/delivery_input.dart';
+import '../models/package_verify_result.dart';
 
-/// Talks to every `/api/v1/{distributor,manager,rider}/*` delivery endpoint.
-///
-/// One repository per role would be cleaner in isolation — but the
-/// endpoints, response shape, and model are identical across roles, so a
-/// single repository is simpler to wire. Backend authorization ensures
-/// a Distributor can only call `/distributor/*`, a Rider only `/rider/*`,
-/// and so on.
+/// Talks to every `/api/v1/{distributor,manager,rider,receiver}/*` delivery
+/// endpoint.
 class DeliveryRepository {
   final Dio _dio;
 
@@ -22,7 +18,6 @@ class DeliveryRepository {
   // Distributor-facing (Phase 7)
   // ────────────────────────────────────────────────────────
 
-  /// GET /distributor/deliveries
   Future<ApiResult<List<Delivery>>> listMine({
     DeliveryStatus? status,
     ServiceType? serviceType,
@@ -45,7 +40,6 @@ class DeliveryRepository {
     });
   }
 
-  /// GET /distributor/deliveries/{id}
   Future<ApiResult<Delivery>> getMine(int id) {
     return ApiResult.guard(() async {
       final response = await _dio.get<Map<String, dynamic>>(
@@ -55,7 +49,6 @@ class DeliveryRepository {
     });
   }
 
-  /// POST /distributor/deliveries
   Future<ApiResult<Delivery>> create(CreateDeliveryInput input) {
     return ApiResult.guard(() async {
       final response = await _dio.post<Map<String, dynamic>>(
@@ -66,7 +59,6 @@ class DeliveryRepository {
     });
   }
 
-  /// POST /distributor/deliveries/price-preview
   Future<ApiResult<PricePreviewResult>> pricePreview(
     PricePreviewInput input,
   ) {
@@ -83,7 +75,6 @@ class DeliveryRepository {
   // Manager-facing (Phase 6)
   // ────────────────────────────────────────────────────────
 
-  /// GET /manager/deliveries
   Future<ApiResult<List<Delivery>>> listForBranch({
     List<DeliveryStatus>? statuses,
     ServiceType? serviceType,
@@ -107,7 +98,6 @@ class DeliveryRepository {
     });
   }
 
-  /// GET /manager/deliveries/{id}
   Future<ApiResult<Delivery>> getForBranch(int id) {
     return ApiResult.guard(() async {
       final response = await _dio.get<Map<String, dynamic>>(
@@ -117,7 +107,6 @@ class DeliveryRepository {
     });
   }
 
-  /// GET /manager/packages
   Future<ApiResult<List<Delivery>>> listAtBranch() {
     return ApiResult.guard(() async {
       final response = await _dio.get<Map<String, dynamic>>(
@@ -133,12 +122,6 @@ class DeliveryRepository {
   // Rider-facing (Phase 8)
   // ────────────────────────────────────────────────────────
 
-  /// GET /rider/deliveries
-  ///
-  /// Filters mirror the backend (Phase 8.1):
-  ///   - statuses: comma-separated list, e.g. `[accepted, picked_up]`
-  ///   - serviceType: single type
-  ///   - perPage: caps at 100 server-side
   Future<ApiResult<List<Delivery>>> listForRider({
     List<DeliveryStatus>? statuses,
     ServiceType? serviceType,
@@ -160,7 +143,6 @@ class DeliveryRepository {
     });
   }
 
-  /// GET /rider/deliveries/{id}
   Future<ApiResult<Delivery>> getRiderDelivery(int id) {
     return ApiResult.guard(() async {
       final response = await _dio.get<Map<String, dynamic>>(
@@ -170,7 +152,6 @@ class DeliveryRepository {
     });
   }
 
-  /// POST /rider/deliveries/{id}/accept
   Future<ApiResult<Delivery>> acceptRiderDelivery(int id) {
     return ApiResult.guard(() async {
       final response = await _dio.post<Map<String, dynamic>>(
@@ -180,7 +161,6 @@ class DeliveryRepository {
     });
   }
 
-  /// POST /rider/deliveries/{id}/pickup
   Future<ApiResult<Delivery>> pickupRiderDelivery(int id) {
     return ApiResult.guard(() async {
       final response = await _dio.post<Map<String, dynamic>>(
@@ -190,17 +170,66 @@ class DeliveryRepository {
     });
   }
 
-  /// POST /rider/deliveries/{id}/deliver
-  ///
-  /// Phase 8.1 ships this as a plain status transition — no verification
-  /// code yet. Phase 12 will add a `verification_code` body field once
-  /// the code-handover flow exists. When that lands, add a
-  /// `verificationCode` parameter here; the widget layer already calls
-  /// this via the rider controller, not directly.
   Future<ApiResult<Delivery>> deliverRiderDelivery(int id) {
     return ApiResult.guard(() async {
       final response = await _dio.post<Map<String, dynamic>>(
         '${ApiEndpoints.riderDeliveries}/$id/deliver',
+      );
+      return Delivery.fromJson(_extractData(response));
+    });
+  }
+
+  // ────────────────────────────────────────────────────────
+  // Receiver-facing (Phase 9)
+  // ────────────────────────────────────────────────────────
+
+  /// GET /receiver/packages
+  ///
+  /// Returns receive-service deliveries at the receiver's branch,
+  /// filtered to those still at the branch (paid / batched / assigned /
+  /// accepted). Filters per the backend query if `statuses` is non-empty.
+  Future<ApiResult<List<Delivery>>> listReceiverPackages({
+    List<DeliveryStatus>? statuses,
+    int? perPage,
+  }) {
+    return ApiResult.guard(() async {
+      final response = await _dio.get<Map<String, dynamic>>(
+        ApiEndpoints.receiverPackages,
+        queryParameters: {
+          if (statuses != null && statuses.isNotEmpty)
+            'status': statuses.map((s) => s.name).join(','),
+          if (perPage != null) 'per_page': perPage,
+        },
+      );
+
+      final data = _extractData(response);
+      return _extractList(data, Delivery.fromJson);
+    });
+  }
+
+  /// POST /receiver/packages/{id}/verify
+  ///
+  /// Read-only readiness check. Returns `can_release: true` when the
+  /// delivery is in `accepted` state with a rider assigned. Does not
+  /// change state. Phase 12 will add a code-match check.
+  Future<ApiResult<PackageVerifyResult>> verifyReceiverPackage(int id) {
+    return ApiResult.guard(() async {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '${ApiEndpoints.receiverPackages}/$id/verify',
+      );
+      return PackageVerifyResult.fromJson(_extractData(response));
+    });
+  }
+
+  /// POST /receiver/packages/{id}/release
+  ///
+  /// Transitions `accepted → picked_up` and stamps `picked_up_at`. The
+  /// rider's own `pickup` endpoint (8.4) is the alternative path — first
+  /// to arrive wins, the other sees a 422.
+  Future<ApiResult<Delivery>> releaseReceiverPackage(int id) {
+    return ApiResult.guard(() async {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '${ApiEndpoints.receiverPackages}/$id/release',
       );
       return Delivery.fromJson(_extractData(response));
     });

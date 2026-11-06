@@ -41,8 +41,9 @@ class ApiEndpoints {
   static const String riderDeliveries = '/rider/deliveries';
   static const String riderEarnings = '/rider/earnings';
 
-  // ─── Receiver (populated in Phase 9) ─────────────────────────────
+  // ─── Receiver (populated in Phase 9.1) ───────────────────────────
   static const String receiverPackages = '/receiver/packages';
+  static const String receiverRegional = '/receiver/regional';
 
   // ─── Payments (populated in Phase 11) ────────────────────────────
   static const String payments = '/payments';
