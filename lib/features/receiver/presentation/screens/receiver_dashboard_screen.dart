@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../widgets/coming_soon_tab.dart';
 import '../../../../widgets/role_dashboard_scaffold.dart';
 import 'receiver_packages_tab.dart';
+import 'receiver_regional_tab.dart';
 
 class ReceiverDashboardScreen extends StatelessWidget {
   const ReceiverDashboardScreen({super.key});
@@ -22,11 +23,7 @@ class ReceiverDashboardScreen extends StatelessWidget {
         RoleDashboardTab(
           label: 'Regional',
           icon: Icons.local_shipping_rounded,
-          body: ComingSoonTab(
-            title: 'Regional dispatch',
-            phase: '9.3',
-            icon: Icons.local_shipping_rounded,
-          ),
+          body: ReceiverRegionalTab(),
         ),
         // History (Phase 9.4)
         RoleDashboardTab(

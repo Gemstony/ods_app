@@ -131,6 +131,30 @@ class _FakeDeliveryRepo extends DeliveryRepository {
       throw StateError('Not stubbed in dashboard tests');
 
   @override
+  Future<ApiResult<List<Delivery>>> listReceiverRegional({
+    List<DeliveryStatus>? statuses,
+    int? perPage,
+  }) async =>
+      const ApiSuccess<List<Delivery>>([]);
+
+  @override
+  Future<ApiResult<Delivery>> assignRegionalDispatcher(int id) async =>
+      throw StateError('Not stubbed in dashboard tests');
+
+  @override
+  Future<ApiResult<Delivery>> dispatchRegionalProvider(
+    int id, {
+    required String providerName,
+    required String providerType,
+    required String ticketNumber,
+    required String routeFrom,
+    required String routeTo,
+    double? transportFare,
+    String? notes,
+  }) async =>
+      throw StateError('Not stubbed in dashboard tests');
+
+  @override
   Future<ApiResult<Delivery>> getForBranch(int id) async =>
       throw StateError('Not stubbed in dashboard tests');
 

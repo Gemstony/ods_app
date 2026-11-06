@@ -183,11 +183,6 @@ class DeliveryRepository {
   // Receiver-facing (Phase 9)
   // ────────────────────────────────────────────────────────
 
-  /// GET /receiver/packages
-  ///
-  /// Returns receive-service deliveries at the receiver's branch,
-  /// filtered to those still at the branch (paid / batched / assigned /
-  /// accepted). Filters per the backend query if `statuses` is non-empty.
   Future<ApiResult<List<Delivery>>> listReceiverPackages({
     List<DeliveryStatus>? statuses,
     int? perPage,
@@ -207,11 +202,6 @@ class DeliveryRepository {
     });
   }
 
-  /// POST /receiver/packages/{id}/verify
-  ///
-  /// Read-only readiness check. Returns `can_release: true` when the
-  /// delivery is in `accepted` state with a rider assigned. Does not
-  /// change state. Phase 12 will add a code-match check.
   Future<ApiResult<PackageVerifyResult>> verifyReceiverPackage(int id) {
     return ApiResult.guard(() async {
       final response = await _dio.post<Map<String, dynamic>>(
@@ -221,15 +211,83 @@ class DeliveryRepository {
     });
   }
 
-  /// POST /receiver/packages/{id}/release
-  ///
-  /// Transitions `accepted → picked_up` and stamps `picked_up_at`. The
-  /// rider's own `pickup` endpoint (8.4) is the alternative path — first
-  /// to arrive wins, the other sees a 422.
   Future<ApiResult<Delivery>> releaseReceiverPackage(int id) {
     return ApiResult.guard(() async {
       final response = await _dio.post<Map<String, dynamic>>(
         '${ApiEndpoints.receiverPackages}/$id/release',
+      );
+      return Delivery.fromJson(_extractData(response));
+    });
+  }
+
+  // ────────────────────────────────────────────────────────
+  // Receiver — Regional dispatch (Phase 9.1 backend, 9.3 UI)
+  // ────────────────────────────────────────────────────────
+
+  /// GET /receiver/regional
+  ///
+  /// Returns regional deliveries at the receiver's branch. Backend
+  /// requires `dispatcher_enabled = true` on the authenticated user.
+  /// Default statuses (server-side) are `batched` + `assigned`; pass
+  /// `statuses` to override.
+  Future<ApiResult<List<Delivery>>> listReceiverRegional({
+    List<DeliveryStatus>? statuses,
+    int? perPage,
+  }) {
+    return ApiResult.guard(() async {
+      final response = await _dio.get<Map<String, dynamic>>(
+        ApiEndpoints.receiverRegional,
+        queryParameters: {
+          if (statuses != null && statuses.isNotEmpty)
+            'status': statuses.map((s) => s.name).join(','),
+          if (perPage != null) 'per_page': perPage,
+        },
+      );
+
+      final data = _extractData(response);
+      return _extractList(data, Delivery.fromJson);
+    });
+  }
+
+  /// POST /receiver/regional/{id}/assign
+  ///
+  /// Transitions `batched → assigned` and stamps `dispatcher_id`.
+  Future<ApiResult<Delivery>> assignRegionalDispatcher(int id) {
+    return ApiResult.guard(() async {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '${ApiEndpoints.receiverRegional}/$id/assign',
+      );
+      return Delivery.fromJson(_extractData(response));
+    });
+  }
+
+  /// POST /receiver/regional/{id}/dispatch
+  ///
+  /// Transitions `assigned → dispatched` and creates a `DispatcherTicket`.
+  /// `transportFare` falls back to `deliveries.bus_cargo_fare` on the
+  /// backend when null.
+  Future<ApiResult<Delivery>> dispatchRegionalProvider(
+    int id, {
+    required String providerName,
+    required String providerType,
+    required String ticketNumber,
+    required String routeFrom,
+    required String routeTo,
+    double? transportFare,
+    String? notes,
+  }) {
+    return ApiResult.guard(() async {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '${ApiEndpoints.receiverRegional}/$id/dispatch',
+        data: {
+          'provider_name': providerName,
+          'provider_type': providerType,
+          'ticket_number': ticketNumber,
+          'route_from': routeFrom,
+          'route_to': routeTo,
+          if (transportFare != null) 'transport_fare': transportFare,
+          if (notes != null && notes.isNotEmpty) 'notes': notes,
+        },
       );
       return Delivery.fromJson(_extractData(response));
     });

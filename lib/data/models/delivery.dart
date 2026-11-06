@@ -1,10 +1,8 @@
 import '../../core/utils/json_helpers.dart';
 import 'delivery_item.dart';
+import 'dispatcher_ticket.dart';
 
 /// Which of the three ODS services this delivery belongs to.
-///
-/// Snake_case names match the backend's `service_type` values exactly, so
-/// `.name` serializes straight to JSON without a lookup table.
 enum ServiceType {
   receive,
   send,
@@ -17,8 +15,6 @@ enum ServiceType {
     );
   }
 
-  /// True for Receive and Send (both are local, same-day).
-  /// False for Regional.
   bool get isLocal => this != ServiceType.regional;
 
   String get displayLabel => switch (this) {
@@ -29,10 +25,6 @@ enum ServiceType {
 }
 
 /// The lifecycle states a delivery moves through.
-///
-/// Snake_case names match the backend's `status` values exactly. Local
-/// (Receive/Send) deliveries skip `dispatched`; Regional deliveries skip
-/// `accepted`. Both share all other states.
 enum DeliveryStatus {
   pending_payment,
   paid,
@@ -45,9 +37,6 @@ enum DeliveryStatus {
   cancelled,
   failed,
   expired,
-
-  /// Fallback when the backend sends a status this client doesn't know yet.
-  /// The Delivery model also stores the raw string so nothing is lost.
   unknown;
 
   static DeliveryStatus fromString(String value) {
@@ -57,39 +46,26 @@ enum DeliveryStatus {
     );
   }
 
-  // ─── Lifecycle predicates ────────────────────────────────
-  /// True when the delivery won't transition any further — either done or
-  /// dead. Terminal states: delivered, cancelled, failed, expired.
   bool get isTerminal =>
       this == delivered ||
       this == cancelled ||
       this == failed ||
       this == expired;
 
-  /// True when the delivery can still progress. Complement of [isTerminal].
   bool get isInProgress => !isTerminal;
 
   bool get isDelivered => this == delivered;
   bool get isCancelled => this == cancelled;
-
-  /// True once payment has been received (any state past pending_payment).
-  /// Does NOT imply the delivery is still active — a cancelled delivery is
-  /// also "paid" if the cancellation happened after payment.
   bool get isPaid => this != pending_payment;
 
-  /// True when a rider has been assigned (assigned → accepted → picked_up
-  /// → dispatched). Useful for "show rider info" decisions.
   bool get hasRider =>
       this == assigned ||
       this == accepted ||
       this == picked_up ||
       this == dispatched;
 
-  /// True once the rider has the package in hand.
   bool get isInTransit => this == picked_up || this == dispatched;
 
-  // ─── UI label ────────────────────────────────────────────
-  /// Human-readable label for status chips and tables.
   String get displayLabel => switch (this) {
         DeliveryStatus.pending_payment => 'Awaiting payment',
         DeliveryStatus.paid => 'Ready for pickup',
@@ -106,41 +82,23 @@ enum DeliveryStatus {
       };
 }
 
-/// A delivery request.
-///
-/// One class covers all three services (Receive / Send / Regional). Fields
-/// that only apply to specific services are nullable — which fields are
-/// required for which service is enforced by the backend's FormRequest,
-/// not by this model.
-///
-/// **Pricing snapshot**: `distanceKm`, `ratePerKm`, `minimumFee`,
-/// `roundingIncrement`, `calculatedFee`, `odsDeliveryFee`, and
-/// `busCargoFare` are snapshotted at the moment payment is initiated. They
-/// never change for a given delivery, even if the Owner later updates the
-/// platform's pricing configuration.
+/// A delivery request. One class covers all three services.
 class Delivery {
   final int id;
   final String trackingId;
 
-  // ─── Core references ─────────────────────────────────────
   final int distributorId;
   final int? pickupBranchId;
 
-  // ─── Service type + status ───────────────────────────────
   final ServiceType serviceType;
   final DeliveryStatus status;
-
-  /// Raw status string from the backend. Preserved for debugging when
-  /// [status] is [DeliveryStatus.unknown].
   final String rawStatus;
 
-  // ─── Pickup location ─────────────────────────────────────
   final String? pickupAddress;
   final double? pickupLatitude;
   final double? pickupLongitude;
   final String? pickupContactPhone;
 
-  // ─── Destination location ────────────────────────────────
   final String? destinationAddress;
   final double? destinationLatitude;
   final double? destinationLongitude;
@@ -148,11 +106,9 @@ class Delivery {
   final String? destinationDistrict;
   final String? destinationBusStop;
 
-  // ─── Recipient (Send + Regional) ─────────────────────────
   final String? recipientName;
   final String? recipientPhone;
 
-  // ─── Pricing snapshot ────────────────────────────────────
   final double? distanceKm;
   final double? ratePerKm;
   final double? minimumFee;
@@ -165,7 +121,6 @@ class Delivery {
   final double? totalAmount;
   final String currency;
 
-  // ─── Assignment ──────────────────────────────────────────
   final int? riderId;
   final DateTime? assignedAt;
   final DateTime? assignmentExpiresAt;
@@ -173,33 +128,28 @@ class Delivery {
   final DateTime? pickedUpAt;
   final DateTime? deliveredAt;
 
-  // ─── Regional dispatch ───────────────────────────────────
   final int? dispatcherId;
   final DateTime? dispatchedAt;
 
-  // ─── Batching (populated by Phase 10) ────────────────────
   final String? batchId;
   final DateTime? batchWindowStart;
   final DateTime? batchWindowEnd;
   final String? assignmentGroupId;
 
-  // ─── Cancellation ────────────────────────────────────────
   final DateTime? cancelledAt;
   final int? cancelledBy;
   final String? cancellationReason;
 
-  // ─── Extras ──────────────────────────────────────────────
   final String? notes;
-
-  /// Time (in whole hours) that the package has been sitting at the
-  /// branch waiting for pickup. Populated only by the Manager Packages
-  /// endpoint (`GET /manager/packages`) — null everywhere else.
   final int? hoursAtBranch;
 
-  // ─── Items (nullable — only included when backend loads them) ─
   final List<DeliveryItem>? items;
 
-  // ─── Metadata ────────────────────────────────────────────
+  /// Present only when the backend eager-loads the `dispatcherTicket`
+  /// relation — Regional list / dispatch responses. Null everywhere else
+  /// (Phase 9.3+).
+  final DispatcherTicket? dispatcherTicket;
+
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final DateTime? deletedAt;
@@ -253,6 +203,7 @@ class Delivery {
     this.notes,
     this.hoursAtBranch,
     this.items,
+    this.dispatcherTicket,
     this.createdAt,
     this.updatedAt,
     this.deletedAt,
@@ -260,6 +211,8 @@ class Delivery {
 
   factory Delivery.fromJson(Map<String, dynamic> json) {
     final rawStatus = json['status'] as String;
+    final rawTicket = json['dispatcher_ticket'];
+
     return Delivery(
       id: asInt(json['id']),
       trackingId: json['tracking_id'] as String,
@@ -337,6 +290,9 @@ class Delivery {
           ? null
           : asInt(json['hours_at_branch']),
       items: asList(json['items'], DeliveryItem.fromJson),
+      dispatcherTicket: rawTicket is Map
+          ? DispatcherTicket.fromJson(Map<String, dynamic>.from(rawTicket))
+          : null,
       createdAt: parseDate(json['created_at']),
       updatedAt: parseDate(json['updated_at']),
       deletedAt: parseDate(json['deleted_at']),
@@ -391,6 +347,7 @@ class Delivery {
         'notes': notes,
         'hours_at_branch': hoursAtBranch,
         'items': items?.map((i) => i.toJson()).toList(),
+        'dispatcher_ticket': dispatcherTicket?.toJson(),
         'created_at': createdAt?.toIso8601String(),
         'updated_at': updatedAt?.toIso8601String(),
         'deleted_at': deletedAt?.toIso8601String(),
@@ -402,37 +359,28 @@ class Delivery {
   bool get isRegional => serviceType == ServiceType.regional;
   bool get isLocal => serviceType.isLocal;
 
-  // ─── Status helpers (delegates to enum) ──────────────────
+  // ─── Status helpers ──────────────────────────────────────
   bool get isDelivered => status.isDelivered;
   bool get isCancelled => status.isCancelled;
   bool get isActive => status.isInProgress;
   bool get isPaid => status.isPaid;
 
   // ─── Display helpers ─────────────────────────────────────
-  /// e.g. "Receive · ODS-20261024-ABC123"
   String get shortLabel => '${serviceType.displayLabel} · $trackingId';
 
-  /// Formatted fee for list tiles. Null-safe (returns "—" if unset).
   String get totalAmountLabel {
     if (totalAmount == null) return '—';
-    return '${currency} ${totalAmount!.toStringAsFixed(0)}';
+    return '$currency ${totalAmount!.toStringAsFixed(0)}';
   }
 
-  /// The fee the distributor pays for this delivery. Regional deliveries
-  /// add `busCargoFare` on top; local deliveries don't.
   String get feeSummaryLabel {
     if (isRegional && busCargoFare != null && odsDeliveryFee != null) {
-      return '${currency} ${odsDeliveryFee!.toStringAsFixed(0)} + '
+      return '$currency ${odsDeliveryFee!.toStringAsFixed(0)} + '
           '${busCargoFare!.toStringAsFixed(0)} transport';
     }
     return totalAmountLabel;
   }
 
-  /// Aging bucket based on [hoursAtBranch]. Null when not set.
-  ///
-  ///   fresh  → < 4 hours
-  ///   aging  → 4–24 hours
-  ///   stale  → > 24 hours
   String? get packageAge {
     if (hoursAtBranch == null) return null;
     final h = hoursAtBranch!;
