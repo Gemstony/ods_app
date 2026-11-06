@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../../../widgets/coming_soon_tab.dart';
 import '../../../../widgets/role_dashboard_scaffold.dart';
+import 'receiver_history_tab.dart';
 import 'receiver_packages_tab.dart';
+import 'receiver_profile_tab.dart';
 import 'receiver_regional_tab.dart';
 
 class ReceiverDashboardScreen extends StatelessWidget {
@@ -29,21 +30,13 @@ class ReceiverDashboardScreen extends StatelessWidget {
         RoleDashboardTab(
           label: 'History',
           icon: Icons.history_rounded,
-          body: ComingSoonTab(
-            title: 'Handover history',
-            phase: '9.4',
-            icon: Icons.history_rounded,
-          ),
+          body: ReceiverHistoryTab(),
         ),
         // Profile (Phase 9.4)
         RoleDashboardTab(
           label: 'Profile',
           icon: Icons.person_rounded,
-          body: ComingSoonTab(
-            title: 'Receiver profile',
-            phase: '9.4',
-            icon: Icons.person_rounded,
-          ),
+          body: ReceiverProfileTab(),
         ),
       ],
     );
