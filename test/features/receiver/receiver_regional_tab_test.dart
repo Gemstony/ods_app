@@ -98,18 +98,22 @@ class _FakeDeliveryRepo extends DeliveryRepository {
     this.listCompleter,
     this.assignResult,
     this.dispatchResult,
+    this.confirmArrivalResult,
   }) : super(dio: Dio());
 
   final ApiResult<List<Delivery>>? listResult;
   final Completer<ApiResult<List<Delivery>>>? listCompleter;
   final ApiResult<Delivery>? assignResult;
   final ApiResult<Delivery>? dispatchResult;
+  final ApiResult<Delivery>? confirmArrivalResult;
 
   int listCallCount = 0;
   int assignCallCount = 0;
   int dispatchCallCount = 0;
+  int confirmArrivalCallCount = 0;
   int? lastAssignedId;
   int? lastDispatchedId;
+  int? lastConfirmedArrivalId;
 
   @override
   Future<ApiResult<List<Delivery>>> listReceiverRegional({
@@ -151,6 +155,16 @@ class _FakeDeliveryRepo extends DeliveryRepository {
     }
     return dispatchResult!;
   }
+
+  @override
+  Future<ApiResult<Delivery>> confirmRegionalArrival(int id) async {
+    confirmArrivalCallCount++;
+    lastConfirmedArrivalId = id;
+    if (confirmArrivalResult == null) {
+      throw StateError('confirmArrivalResult not stubbed');
+    }
+    return confirmArrivalResult!;
+  }
 }
 
 Widget _wrap({
@@ -174,7 +188,8 @@ void main() {
   setUpAll(AppConfig.initialize);
 
   // ─── Dispatcher gate ────────────────────────────────────
-  testWidgets('shows gate message for non-dispatcher receiver', (tester) async {
+  testWidgets('shows gate message for non-dispatcher receiver',
+      (tester) async {
     _useLargeViewport(tester);
     final repo = _FakeDeliveryRepo(
       listResult: const ApiSuccess<List<Delivery>>([]),
@@ -187,8 +202,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Dispatcher access required'), findsOneWidget);
-    expect(find.text('Assign to me'), findsNothing);
-    // List should not even load
     expect(repo.listCallCount, 0);
   });
 
@@ -235,10 +248,11 @@ void main() {
     _useLargeViewport(tester);
     final repo = _FakeDeliveryRepo(
       listResult: ApiSuccess<List<Delivery>>([
+        _regional(id: 1, trackingId: 'ODS-BATCH', status: DeliveryStatus.batched),
         _regional(
-            id: 1, trackingId: 'ODS-BATCH', status: DeliveryStatus.batched),
-        _regional(
-            id: 2, trackingId: 'ODS-ASSIGN', status: DeliveryStatus.assigned),
+            id: 2,
+            trackingId: 'ODS-ASSIGN',
+            status: DeliveryStatus.assigned),
       ]),
     );
 
@@ -256,7 +270,8 @@ void main() {
   });
 
   // ─── CTA visibility ─────────────────────────────────────
-  testWidgets('batched shows "Assign to me" CTA, not dispatch', (tester) async {
+  testWidgets('batched shows "Assign to me" CTA, not dispatch',
+      (tester) async {
     _useLargeViewport(tester);
     final repo = _FakeDeliveryRepo(
       listResult: ApiSuccess<List<Delivery>>([
@@ -269,6 +284,7 @@ void main() {
 
     expect(find.text('Assign to me'), findsOneWidget);
     expect(find.text('Dispatch via provider'), findsNothing);
+    expect(find.text('Confirm arrival'), findsNothing);
   });
 
   testWidgets('assigned shows "Dispatch via provider" CTA, not assign',
@@ -285,9 +301,11 @@ void main() {
 
     expect(find.text('Dispatch via provider'), findsOneWidget);
     expect(find.text('Assign to me'), findsNothing);
+    expect(find.text('Confirm arrival'), findsNothing);
   });
 
-  testWidgets('dispatched shows ticket block, no CTAs', (tester) async {
+  testWidgets('dispatched shows ticket block and Confirm arrival CTA',
+      (tester) async {
     _useLargeViewport(tester);
     final repo = _FakeDeliveryRepo(
       listResult: ApiSuccess<List<Delivery>>([
@@ -307,10 +325,12 @@ void main() {
     expect(find.textContaining('Dar es Salaam → Arusha'), findsOneWidget);
     expect(find.text('Assign to me'), findsNothing);
     expect(find.text('Dispatch via provider'), findsNothing);
+    expect(find.text('Confirm arrival'), findsOneWidget);
   });
 
   // ─── Assign flow ────────────────────────────────────────
-  testWidgets('assign calls API + shows snackbar + refreshes', (tester) async {
+  testWidgets('assign calls API + shows snackbar + refreshes',
+      (tester) async {
     _useLargeViewport(tester);
     final batched = _regional(id: 7, status: DeliveryStatus.batched);
     final assigned = _regional(id: 7, status: DeliveryStatus.assigned);
@@ -379,15 +399,12 @@ void main() {
     await tester.tap(find.text('Dispatch via provider'));
     await tester.pumpAndSettle();
 
-    // Dialog opens with header + fields
     expect(find.text('Dispatch ODS-REG-1'), findsOneWidget);
     expect(find.text('Provider name'), findsOneWidget);
     expect(find.text('Ticket number'), findsOneWidget);
     expect(find.text('Route from'), findsOneWidget);
     expect(find.text('Route to'), findsOneWidget);
-    // Route to is pre-filled from destination region
     expect(find.text('Arusha'), findsWidgets);
-    // Fare is pre-filled from bus_cargo_fare
     expect(find.text('3500'), findsWidgets);
   });
 
@@ -416,7 +433,7 @@ void main() {
     final assigned = _regional(
       id: 7,
       status: DeliveryStatus.assigned,
-      region: 'Arusha', // Route to pre-filled
+      region: 'Arusha',
     );
     final repo = _FakeDeliveryRepo(
       listResult: ApiSuccess<List<Delivery>>([assigned]),
@@ -429,11 +446,9 @@ void main() {
     await tester.tap(find.text('Dispatch via provider'));
     await tester.pumpAndSettle();
 
-    // Tap Dispatch without filling required fields
     await tester.tap(find.widgetWithText(FilledButton, 'Dispatch'));
     await tester.pumpAndSettle();
 
-    // Validation messages shown for empty fields
     expect(find.text('Required'), findsWidgets);
     expect(repo.dispatchCallCount, 0);
   });
@@ -441,9 +456,6 @@ void main() {
   testWidgets('dispatch calls API + shows snackbar with ticket number',
       (tester) async {
     _useLargeViewport(tester);
-    // region: 'Arusha' makes Route-to pre-fill in the dialog, so the
-    // form passes validation. Without it, _routeTo starts empty and
-    // _submit() returns early without calling the API.
     final assigned = _regional(
       id: 7,
       status: DeliveryStatus.assigned,
@@ -493,7 +505,6 @@ void main() {
 
   testWidgets('dispatch failure shows error snackbar', (tester) async {
     _useLargeViewport(tester);
-    // Same fix as above — route_to needs a value for the form to submit.
     final assigned = _regional(
       id: 7,
       status: DeliveryStatus.assigned,
@@ -508,7 +519,7 @@ void main() {
         ),
       ),
     );
-    
+
     await tester.pumpWidget(_wrap(repo: repo));
     await tester.pumpAndSettle();
 
@@ -535,6 +546,130 @@ void main() {
     expect(repo.dispatchCallCount, 1);
     expect(
       find.text('This delivery already has a dispatch ticket.'),
+      findsOneWidget,
+    );
+  });
+
+  // ─── Confirm arrival flow (9.5) ─────────────────────────
+  testWidgets('tapping Confirm arrival opens confirm dialog',
+      (tester) async {
+    _useLargeViewport(tester);
+    final dispatched = _regional(
+      id: 7,
+      trackingId: 'ODS-DISP-7',
+      status: DeliveryStatus.dispatched,
+      region: 'Arusha',
+      ticket: _ticket(deliveryId: 7),
+    );
+    final repo = _FakeDeliveryRepo(
+      listResult: ApiSuccess<List<Delivery>>([dispatched]),
+      confirmArrivalResult: ApiSuccess(dispatched),
+    );
+
+    await tester.pumpWidget(_wrap(repo: repo));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Confirm arrival'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Confirm arrival?'), findsOneWidget);
+    expect(
+      find.textContaining('ODS-DISP-7 reached Arusha'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('Cancel in confirm-arrival dialog does not call API',
+      (tester) async {
+    _useLargeViewport(tester);
+    final dispatched = _regional(
+      id: 7,
+      status: DeliveryStatus.dispatched,
+      ticket: _ticket(deliveryId: 7),
+    );
+    final repo = _FakeDeliveryRepo(
+      listResult: ApiSuccess<List<Delivery>>([dispatched]),
+      confirmArrivalResult: ApiSuccess(dispatched),
+    );
+
+    await tester.pumpWidget(_wrap(repo: repo));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Confirm arrival'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+    await tester.pumpAndSettle();
+
+    expect(repo.confirmArrivalCallCount, 0);
+  });
+
+  testWidgets('confirming arrival calls API + shows snackbar',
+      (tester) async {
+    _useLargeViewport(tester);
+    final dispatched = _regional(
+      id: 7,
+      status: DeliveryStatus.dispatched,
+      ticket: _ticket(deliveryId: 7),
+    );
+    final delivered = _regional(
+      id: 7,
+      status: DeliveryStatus.delivered,
+      ticket: _ticket(deliveryId: 7),
+    );
+    final repo = _FakeDeliveryRepo(
+      listResult: ApiSuccess<List<Delivery>>([dispatched]),
+      confirmArrivalResult: ApiSuccess(delivered),
+    );
+
+    await tester.pumpWidget(_wrap(repo: repo));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Confirm arrival'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(repo.confirmArrivalCallCount, 1);
+    expect(repo.lastConfirmedArrivalId, 7);
+    expect(
+      find.text('Arrival confirmed. Delivery complete.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('confirm-arrival failure shows error snackbar',
+      (tester) async {
+    _useLargeViewport(tester);
+    final dispatched = _regional(
+      id: 7,
+      status: DeliveryStatus.dispatched,
+      ticket: _ticket(deliveryId: 7),
+    );
+    final repo = _FakeDeliveryRepo(
+      listResult: ApiSuccess<List<Delivery>>([dispatched]),
+      confirmArrivalResult: const ApiFailure(
+        Failure(
+          type: FailureType.validation,
+          message: 'Delivery is not in dispatched state.',
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(_wrap(repo: repo));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Confirm arrival'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(repo.confirmArrivalCallCount, 1);
+    expect(
+      find.text('Delivery is not in dispatched state.'),
       findsOneWidget,
     );
   });

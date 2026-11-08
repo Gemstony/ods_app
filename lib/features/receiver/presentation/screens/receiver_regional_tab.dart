@@ -8,19 +8,20 @@ import '../../../../data/models/dispatcher_ticket.dart';
 import '../../../../shared/providers/auth_provider.dart';
 import '../../../../shared/providers/repository_providers.dart';
 import '../../../../widgets/widgets.dart';
+import '../providers/receiver_history_providers.dart';
 import '../providers/receiver_regional_providers.dart';
 
 /// The Receiver's Regional tab — regional deliveries at the branch, with
 /// the two-step dispatch flow:
 ///
-///   batched  → Assign to me   → assigned
-///   assigned → Dispatch       → dispatched (+ ticket)
-///   dispatched               → read-only ticket view
+///   batched    → Assign to me         → assigned
+///   assigned   → Dispatch             → dispatched (+ ticket)
+///   dispatched → Confirm arrival      → delivered
 ///
-/// Gated on `dispatcher_enabled`. Non-dispatchers see an info card.
-///
-/// Busy state is scoped to API calls only — never overlaps with a
-/// dialog (matches 9.2's pattern to avoid pumpAndSettle hangs).
+/// `Confirm arrival` closes the loop from the ORIGIN branch's perspective
+/// (Phase 9.5). The origin receiver taps it only after the recipient or
+/// bus provider has acknowledged receipt. Once confirmed, the delivery
+/// drops out of the Regional tab and appears in History.
 class ReceiverRegionalTab extends ConsumerStatefulWidget {
   const ReceiverRegionalTab({super.key});
 
@@ -30,14 +31,12 @@ class ReceiverRegionalTab extends ConsumerStatefulWidget {
 }
 
 class _ReceiverRegionalTabState extends ConsumerState<ReceiverRegionalTab> {
-  /// Delivery IDs with an in-flight assign or dispatch call.
   final Set<int> _busyIds = <int>{};
 
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
 
-    // Gate: dispatcher privileges required (backend 403s otherwise).
     if (user == null || !user.dispatcherEnabled) {
       return const _DispatcherGateMessage();
     }
@@ -97,6 +96,7 @@ class _ReceiverRegionalTabState extends ConsumerState<ReceiverRegionalTab> {
             isBusy: _busyIds.contains(delivery.id),
             onAssign: () => _onAssignTap(delivery),
             onDispatch: () => _onDispatchTap(delivery),
+            onConfirmArrival: () => _onConfirmArrivalTap(delivery),
           ),
         );
       },
@@ -120,7 +120,7 @@ class _ReceiverRegionalTabState extends ConsumerState<ReceiverRegionalTab> {
     );
   }
 
-  // ─── Assign flow (single API call, no confirm) ────────────
+  // ─── Assign flow ──────────────────────────────────────────
   Future<void> _onAssignTap(Delivery delivery) async {
     setState(() => _busyIds.add(delivery.id));
 
@@ -139,7 +139,7 @@ class _ReceiverRegionalTabState extends ConsumerState<ReceiverRegionalTab> {
     );
   }
 
-  // ─── Dispatch flow (form dialog then API) ─────────────────
+  // ─── Dispatch flow ────────────────────────────────────────
   Future<void> _onDispatchTap(Delivery delivery) async {
     final form = await showDialog<_DispatchFormResult>(
       context: context,
@@ -169,6 +169,50 @@ class _ReceiverRegionalTabState extends ConsumerState<ReceiverRegionalTab> {
         ref.invalidate(receiverRegionalProvider);
         final ticketNum = d.dispatcherTicket?.ticketNumber ?? 'created';
         _showSnackbar('Dispatched via ${form.providerName}. Ticket $ticketNum.');
+      },
+      onFailure: (f) => _showSnackbar(f.message),
+    );
+  }
+
+  // ─── Confirm arrival flow (9.5) ───────────────────────────
+  Future<void> _onConfirmArrivalTap(Delivery delivery) async {
+    final destination = delivery.destinationRegion ?? 'the destination';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Confirm arrival?'),
+        content: Text(
+          'Only confirm after the recipient or the bus/cargo provider has '
+          'acknowledged that ${delivery.trackingId} reached $destination.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _busyIds.add(delivery.id));
+
+    final repo = ref.read(deliveryRepositoryProvider);
+    final result = await repo.confirmRegionalArrival(delivery.id);
+
+    if (!mounted) return;
+    setState(() => _busyIds.remove(delivery.id));
+
+    result.fold(
+      onSuccess: (_) {
+        ref.invalidate(receiverRegionalProvider);
+        ref.invalidate(receiverHistoryProvider);
+        _showSnackbar('Arrival confirmed. Delivery complete.');
       },
       onFailure: (f) => _showSnackbar(f.message),
     );
@@ -239,12 +283,14 @@ class _RegionalDeliveryCard extends StatelessWidget {
   final bool isBusy;
   final VoidCallback onAssign;
   final VoidCallback onDispatch;
+  final VoidCallback onConfirmArrival;
 
   const _RegionalDeliveryCard({
     required this.delivery,
     required this.isBusy,
     required this.onAssign,
     required this.onDispatch,
+    required this.onConfirmArrival,
   });
 
   @override
@@ -267,7 +313,6 @@ class _RegionalDeliveryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ─── Header ─────────────────────────────────────
           Row(
             children: [
               const Icon(
@@ -290,10 +335,8 @@ class _RegionalDeliveryCard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.sm),
 
-          // ─── Destination ────────────────────────────────
           _destinationLine(context),
 
-          // ─── Recipient ──────────────────────────────────
           if (delivery.recipientName != null) ...[
             const SizedBox(height: AppSpacing.xxs),
             _InfoRow(
@@ -302,7 +345,6 @@ class _RegionalDeliveryCard extends StatelessWidget {
             ),
           ],
 
-          // ─── Bus cargo fare (pre-dispatch estimate) ─────
           if (delivery.busCargoFare != null &&
               delivery.status != DeliveryStatus.dispatched) ...[
             const SizedBox(height: AppSpacing.xxs),
@@ -313,13 +355,12 @@ class _RegionalDeliveryCard extends StatelessWidget {
             ),
           ],
 
-          // ─── Ticket block (dispatched only) ─────────────
           if (ticket != null) ...[
             const SizedBox(height: AppSpacing.sm),
             _TicketBlock(ticket: ticket),
           ],
 
-          // ─── CTA ────────────────────────────────────────
+          // CTAs by status
           if (delivery.status == DeliveryStatus.batched) ...[
             const SizedBox(height: AppSpacing.md),
             _ActionButton(
@@ -335,6 +376,14 @@ class _RegionalDeliveryCard extends StatelessWidget {
               icon: Icons.local_shipping_rounded,
               isBusy: isBusy,
               onPressed: onDispatch,
+            ),
+          ] else if (delivery.status == DeliveryStatus.dispatched) ...[
+            const SizedBox(height: AppSpacing.md),
+            _ActionButton(
+              label: 'Confirm arrival',
+              icon: Icons.check_circle_rounded,
+              isBusy: isBusy,
+              onPressed: onConfirmArrival,
             ),
           ],
         ],
@@ -494,7 +543,7 @@ class _ActionButton extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Dispatch form dialog
+// Dispatch form dialog (unchanged from 9.3)
 // ─────────────────────────────────────────────────────────────
 
 class _DispatchFormResult {

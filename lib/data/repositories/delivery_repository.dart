@@ -221,15 +221,9 @@ class DeliveryRepository {
   }
 
   // ────────────────────────────────────────────────────────
-  // Receiver — Regional dispatch (Phase 9.1 backend, 9.3 UI)
+  // Receiver — Regional dispatch (Phase 9.1/9.3/9.5)
   // ────────────────────────────────────────────────────────
 
-  /// GET /receiver/regional
-  ///
-  /// Returns regional deliveries at the receiver's branch. Backend
-  /// requires `dispatcher_enabled = true` on the authenticated user.
-  /// Default statuses (server-side) are `batched` + `assigned`; pass
-  /// `statuses` to override.
   Future<ApiResult<List<Delivery>>> listReceiverRegional({
     List<DeliveryStatus>? statuses,
     int? perPage,
@@ -249,9 +243,6 @@ class DeliveryRepository {
     });
   }
 
-  /// POST /receiver/regional/{id}/assign
-  ///
-  /// Transitions `batched → assigned` and stamps `dispatcher_id`.
   Future<ApiResult<Delivery>> assignRegionalDispatcher(int id) {
     return ApiResult.guard(() async {
       final response = await _dio.post<Map<String, dynamic>>(
@@ -261,11 +252,6 @@ class DeliveryRepository {
     });
   }
 
-  /// POST /receiver/regional/{id}/dispatch
-  ///
-  /// Transitions `assigned → dispatched` and creates a `DispatcherTicket`.
-  /// `transportFare` falls back to `deliveries.bus_cargo_fare` on the
-  /// backend when null.
   Future<ApiResult<Delivery>> dispatchRegionalProvider(
     int id, {
     required String providerName,
@@ -288,6 +274,21 @@ class DeliveryRepository {
           if (transportFare != null) 'transport_fare': transportFare,
           if (notes != null && notes.isNotEmpty) 'notes': notes,
         },
+      );
+      return Delivery.fromJson(_extractData(response));
+    });
+  }
+
+  /// POST /receiver/regional/{id}/confirm-arrival
+  ///
+  /// Transitions `dispatched → delivered`. Called by the ORIGIN receiver
+  /// after the recipient or the bus/cargo provider has acknowledged
+  /// receipt (typically via phone call). No code verification yet —
+  /// Phase 12 adds that on top of the same endpoint.
+  Future<ApiResult<Delivery>> confirmRegionalArrival(int id) {
+    return ApiResult.guard(() async {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '${ApiEndpoints.receiverRegional}/$id/confirm-arrival',
       );
       return Delivery.fromJson(_extractData(response));
     });
