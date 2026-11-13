@@ -6,18 +6,23 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../data/models/finance_summary.dart';
 import '../../../../widgets/widgets.dart';
 import '../providers/owner_finance_providers.dart';
+import '../widgets/owner_ledger_section.dart';
 
+/// The Owner's Finance tab.
+///
+/// Six summary sections (revenue / payables / payouts / costs /
+/// reconciliation / recent payouts) plus the Phase 11.6 ledger hub.
 class OwnerFinanceTab extends ConsumerWidget {
   const OwnerFinanceTab({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final summaryAsync = ref.watch(ownerFinanceProvider);
+    final async = ref.watch(ownerFinanceProvider);
 
-    return summaryAsync.when(
+    return async.when(
       loading: () => const LoadingView(message: 'Loading finance summary…'),
       error: (_, __) => ErrorView(
-        message: 'Could not load financial summary.',
+        message: 'Could not load finance summary.',
         onRetry: () => ref.invalidate(ownerFinanceProvider),
       ),
       data: (summary) => RefreshIndicator(
@@ -29,15 +34,19 @@ class OwnerFinanceTab extends ConsumerWidget {
           padding: const EdgeInsets.all(AppSpacing.screenH),
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
-            _RevenueSection(revenue: summary.revenue),
+            _RevenueCard(summary: summary),
             const SizedBox(height: AppSpacing.lg),
-            _PayablesSection(payables: summary.payables),
+            _PayablesCard(summary: summary),
             const SizedBox(height: AppSpacing.lg),
-            _ReconciliationSection(reconciliation: summary.reconciliation),
+            _PayoutsCard(summary: summary),
             const SizedBox(height: AppSpacing.lg),
-            _PayoutsSection(payouts: summary.payouts),
+            _CostsCard(summary: summary),
             const SizedBox(height: AppSpacing.lg),
-            _RecentPayoutsSection(payouts: summary.recentPayouts),
+            _ReconciliationCard(summary: summary),
+            const SizedBox(height: AppSpacing.lg),
+            _RecentPayoutsCard(summary: summary),
+            const SizedBox(height: AppSpacing.lg),
+            const OwnerLedgerSection(),
             const SizedBox(height: AppSpacing.xl),
           ],
         ),
@@ -46,58 +55,221 @@ class OwnerFinanceTab extends ConsumerWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Revenue section
-// ─────────────────────────────────────────────────────────────
+// ─── Revenue ────────────────────────────────────────────────
 
-class _RevenueSection extends StatelessWidget {
-  final RevenueSummary revenue;
-  const _RevenueSection({required this.revenue});
+class _RevenueCard extends StatelessWidget {
+  final FinanceSummary summary;
+  const _RevenueCard({required this.summary});
 
   @override
   Widget build(BuildContext context) {
+    return _Card(
+      title: 'Revenue',
+      icon: Icons.trending_up_rounded,
+      children: [
+        _kv(context, 'Today', _tsh(summary.revenue.todayTsh)),
+        _kv(context, 'This week', _tsh(summary.revenue.thisWeekTsh)),
+        _kv(context, 'This month', _tsh(summary.revenue.thisMonthTsh)),
+        _kv(context, 'All time', _tsh(summary.revenue.allTimeTsh)),
+      ],
+    );
+  }
+}
+
+// ─── Payables ───────────────────────────────────────────────
+
+class _PayablesCard extends StatelessWidget {
+  final FinanceSummary summary;
+  const _PayablesCard({required this.summary});
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final p = summary.payables;
+
+    return _Card(
+      title: 'Outstanding payables',
+      icon: Icons.receipt_long_rounded,
+      children: [
+        // Prominent total chip
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm,
+            vertical: AppSpacing.xs,
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.warningSurface,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          ),
+          child: Row(
+            children: [
+              Text(
+                'Total owed',
+                style: text.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.onSurface,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                _tsh(p.totalTsh),
+                style: text.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.warning,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        _Subsection(
+          label: 'Rider earnings',
+          rows: [
+            _kv(context, 'Pending', _tsh(p.riderPendingTsh)),
+            _kv(context, 'Approved', _tsh(p.riderApprovedTsh)),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        _Subsection(
+          label: 'Dispatcher earnings',
+          rows: [
+            _kv(context, 'Pending', _tsh(p.dispatcherPendingTsh)),
+            _kv(context, 'Approved', _tsh(p.dispatcherApprovedTsh)),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        _kv(context, 'Transport fare owed', _tsh(p.transportFareOwedTsh)),
+      ],
+    );
+  }
+}
+
+class _Subsection extends StatelessWidget {
+  final String label;
+  final List<Widget> rows;
+  const _Subsection({required this.label, required this.rows});
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _SectionHeader(
-          title: 'Revenue',
-          icon: Icons.trending_up_rounded,
-          subtitle: 'Completed payments only',
+        Text(
+          label,
+          style: text.bodySmall?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: AppColors.primary,
+          ),
         ),
-        const SizedBox(height: AppSpacing.xs),
+        const SizedBox(height: 2),
+        ...rows,
+      ],
+    );
+  }
+}
+
+// ─── Payouts ────────────────────────────────────────────────
+
+class _PayoutsCard extends StatelessWidget {
+  final FinanceSummary summary;
+  const _PayoutsCard({required this.summary});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = summary.payouts;
+    return _Card(
+      title: 'Payouts',
+      icon: Icons.account_balance_wallet_rounded,
+      children: [
+        _kv(
+          context,
+          'This month',
+          '${p.thisMonthCount} · ${_tsh(p.thisMonthTsh)}',
+        ),
+        _kv(
+          context,
+          'Pending',
+          '${p.pendingCount} · ${_tsh(p.pendingTsh)}',
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Costs ──────────────────────────────────────────────────
+
+class _CostsCard extends StatelessWidget {
+  final FinanceSummary summary;
+  const _CostsCard({required this.summary});
+
+  @override
+  Widget build(BuildContext context) {
+    return _Card(
+      title: 'Costs',
+      icon: Icons.money_off_rounded,
+      children: [
+        _kv(
+          context,
+          'Transport paid',
+          _tsh(summary.transportPaid.thisMonthTsh),
+        ),
+        _kv(
+          context,
+          'Expenses (month)',
+          _tsh(summary.expenses.thisMonthTsh),
+        ),
+        _kv(
+          context,
+          'Expenses (total)',
+          _tsh(summary.expenses.allTimeTsh),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Reconciliation ─────────────────────────────────────────
+
+class _ReconciliationCard extends StatelessWidget {
+  final FinanceSummary summary;
+  const _ReconciliationCard({required this.summary});
+
+  @override
+  Widget build(BuildContext context) {
+    final r = summary.reconciliation;
+    return _Card(
+      title: 'Reconciliation',
+      icon: Icons.balance_rounded,
+      children: [
+        _kv(context, 'Revenue', _tsh(r.revenueThisMonthTsh)),
+        // U+2212 MINUS SIGN (not ASCII hyphen). Matches the test.
+        _kv(context, '\u2212 Payouts', _tsh(r.minusPayoutsThisMonthTsh)),
+        _kv(
+          context,
+          '\u2212 Transport paid',
+          _tsh(r.minusTransportPaidThisMonthTsh),
+        ),
+        _kv(context, '\u2212 Expenses', _tsh(r.minusExpensesThisMonthTsh)),
+        const Divider(height: 20),
         Row(
           children: [
             Expanded(
-              child: _KpiTile(
-                label: 'Today',
-                value: _formatTsh(revenue.todayTsh),
+              child: Text(
+                'Operating surplus',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
               ),
             ),
-            const SizedBox(width: AppSpacing.xs),
-            Expanded(
-              child: _KpiTile(
-                label: 'This week',
-                value: _formatTsh(revenue.thisWeekTsh),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.xs),
-        Row(
-          children: [
-            Expanded(
-              child: _KpiTile(
-                label: 'This month',
-                value: _formatTsh(revenue.thisMonthTsh),
-              ),
-            ),
-            const SizedBox(width: AppSpacing.xs),
-            Expanded(
-              child: _KpiTile(
-                label: 'All time',
-                value: _formatTsh(revenue.allTimeTsh),
-                isHighlighted: true,
-              ),
+            Text(
+              _tsh(r.operatingSurplusTsh),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: r.isPositive
+                        ? AppColors.success
+                        : AppColors.error,
+                  ),
             ),
           ],
         ),
@@ -106,15 +278,147 @@ class _RevenueSection extends StatelessWidget {
   }
 }
 
-class _KpiTile extends StatelessWidget {
-  final String label;
-  final String value;
-  final bool isHighlighted;
+// ─── Recent payouts ─────────────────────────────────────────
 
-  const _KpiTile({
-    required this.label,
-    required this.value,
-    this.isHighlighted = false,
+class _RecentPayoutsCard extends StatelessWidget {
+  final FinanceSummary summary;
+  const _RecentPayoutsCard({required this.summary});
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return _Card(
+      title: 'Recent payouts',
+      icon: Icons.history_rounded,
+      children: [
+        if (summary.recentPayouts.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+            child: Text(
+              'No payouts recorded yet.',
+              style: text.bodySmall?.copyWith(
+                color: AppColors.onSurfaceMuted,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          )
+        else
+          for (final p in summary.recentPayouts) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      p.userName,
+                      style: text.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  _StatusBadge(status: p.status),
+                  const SizedBox(width: AppSpacing.sm),
+                  Text(
+                    '${p.currency} ${p.amount.toStringAsFixed(0)}',
+                    style: text.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+      ],
+    );
+  }
+}
+
+class _StatusBadge extends StatelessWidget {
+  final String status;
+  const _StatusBadge({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final label = status.isEmpty
+        ? 'Unknown'
+        : status[0].toUpperCase() + status.substring(1);
+    final (fg, bg) = switch (status) {
+      'paid' => (AppColors.success, AppColors.successSurface),
+      'pending' || 'processing' => (AppColors.warning, AppColors.warningSurface),
+      'failed' || 'cancelled' => (AppColors.error, AppColors.errorSurface),
+      _ => (AppColors.onSurfaceMuted, AppColors.surface),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: fg,
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Shared ─────────────────────────────────────────────────
+
+Widget _kv(BuildContext context, String label, String value) {
+  final text = Theme.of(context).textTheme;
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 2),
+    child: Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: text.bodySmall?.copyWith(
+              color: AppColors.onSurfaceMuted,
+            ),
+          ),
+        ),
+        Text(
+          value,
+          style: text.bodySmall?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+/// Short TZS formatter.
+///   5000    → TZS 5.0k
+///   100000  → TZS 100.0k
+///   532000  → TZS 532.0k
+///   5000000 → TZS 5.0M
+String _tsh(double amount) {
+  final abs = amount.abs();
+  if (abs >= 1000000) {
+    return 'TZS ${(amount / 1000000).toStringAsFixed(1)}M';
+  }
+  if (abs >= 1000) {
+    return 'TZS ${(amount / 1000).toStringAsFixed(1)}k';
+  }
+  return 'TZS ${amount.toStringAsFixed(0)}';
+}
+
+class _Card extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final List<Widget> children;
+  const _Card({
+    required this.title,
+    required this.icon,
+    required this.children,
   });
 
   @override
@@ -125,532 +429,27 @@ class _KpiTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-        border: Border.all(
-          color: isHighlighted ? AppColors.primary : AppColors.border,
-        ),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            label,
-            style: text.bodySmall?.copyWith(
-              color: AppColors.onSurfaceMuted,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xxs),
-          Text(
-            value,
-            style: text.titleMedium?.copyWith(
-              fontWeight: FontWeight.w800,
-              color: isHighlighted ? AppColors.primary : AppColors.onSurface,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────
-// Payables section
-// ─────────────────────────────────────────────────────────────
-
-class _PayablesSection extends StatelessWidget {
-  final PayablesSummary payables;
-  const _PayablesSection({required this.payables});
-
-  @override
-  Widget build(BuildContext context) {
-    final isOwed = payables.totalTsh > 0;
-    final text = Theme.of(context).textTheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const _SectionHeader(
-          title: 'Outstanding payables',
-          icon: Icons.account_balance_rounded,
-          subtitle: 'Money ODS owes right now',
-        ),
-        const SizedBox(height: AppSpacing.xs),
-        Container(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            color: isOwed ? AppColors.warningSurface : Colors.white,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-            border: Border.all(
-              color: isOwed ? AppColors.warning : AppColors.border,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          Row(
             children: [
-              Row(
-                children: [
-                  Text(
-                    'Total owed',
-                    style: text.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    _formatTsh(payables.totalTsh),
-                    style: text.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: isOwed
-                          ? AppColors.warning
-                          : AppColors.onSurfaceMuted,
-                    ),
-                  ),
-                ],
-              ),
-              const Divider(height: AppSpacing.lg),
-              _Row(
-                label: 'Rider earnings',
-                value: _formatTsh(payables.totalRiderTsh),
-                detail:
-                    '(${_formatTsh(payables.riderPendingTsh)} pending · ${_formatTsh(payables.riderApprovedTsh)} approved)',
-              ),
-              _Row(
-                label: 'Dispatcher earnings',
-                value: _formatTsh(payables.totalDispatcherTsh),
-                detail:
-                    '(${_formatTsh(payables.dispatcherPendingTsh)} pending · ${_formatTsh(payables.dispatcherApprovedTsh)} approved)',
-              ),
-              _Row(
-                label: 'Transport fare owed',
-                value: _formatTsh(payables.transportFareOwedTsh),
-                detail: '(to bus/cargo providers)',
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────
-// Reconciliation section
-// ─────────────────────────────────────────────────────────────
-
-class _ReconciliationSection extends StatelessWidget {
-  final ReconciliationSummary reconciliation;
-  const _ReconciliationSection({required this.reconciliation});
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    final positive = reconciliation.isPositive;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const _SectionHeader(
-          title: 'Reconciliation',
-          icon: Icons.calculate_rounded,
-          subtitle: 'This month · operating surplus calculation',
-        ),
-        const SizedBox(height: AppSpacing.xs),
-        Container(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _EquationRow(
-                label: 'Revenue',
-                value: _formatTsh(reconciliation.revenueThisMonthTsh),
-              ),
-              _EquationRow(
-                label: '− Payouts',
-                value: _formatTsh(reconciliation.minusPayoutsThisMonthTsh),
-              ),
-              _EquationRow(
-                label: '− Transport paid',
-                value: _formatTsh(
-                    reconciliation.minusTransportPaidThisMonthTsh),
-              ),
-              _EquationRow(
-                label: '− Expenses',
-                value:
-                    _formatTsh(reconciliation.minusExpensesThisMonthTsh),
-              ),
-              const Divider(height: AppSpacing.lg),
-              Row(
-                children: [
-                  Text(
-                    'Operating surplus',
-                    style: text.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    _formatTsh(reconciliation.operatingSurplusTsh),
-                    style: text.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: positive
-                          ? AppColors.success
-                          : AppColors.error,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _EquationRow extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _EquationRow({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: text.bodyMedium?.copyWith(
-                color: AppColors.onSurfaceMuted,
-              ),
-            ),
-          ),
-          Text(
-            value,
-            style: text.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────
-// Payouts summary section
-// ─────────────────────────────────────────────────────────────
-
-class _PayoutsSection extends StatelessWidget {
-  final PayoutsSummary payouts;
-  const _PayoutsSection({required this.payouts});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const _SectionHeader(
-          title: 'Payouts',
-          icon: Icons.payments_rounded,
-          subtitle: 'Money that already left ODS',
-        ),
-        const SizedBox(height: AppSpacing.xs),
-        Container(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _Row(
-                label: 'This month',
-                value: _formatTsh(payouts.thisMonthTsh),
-                detail: '${payouts.thisMonthCount} payout${payouts.thisMonthCount == 1 ? '' : 's'}',
-              ),
-              _Row(
-                label: 'Pending',
-                value: _formatTsh(payouts.pendingTsh),
-                detail: '${payouts.pendingCount} awaiting processing',
-                isWarning: payouts.pendingCount > 0,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────
-// Recent payouts
-// ─────────────────────────────────────────────────────────────
-
-class _RecentPayoutsSection extends StatelessWidget {
-  final List<RecentPayout> payouts;
-  const _RecentPayoutsSection({required this.payouts});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const _SectionHeader(
-          title: 'Recent payouts',
-          icon: Icons.history_rounded,
-          subtitle: 'Latest 5 payout records',
-        ),
-        const SizedBox(height: AppSpacing.xs),
-        Container(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: payouts.isEmpty
-              ? Padding(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: AppSpacing.md,
-                  ),
-                  child: Text(
-                    'No payouts recorded yet.',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.onSurfaceMuted,
-                        ),
-                  ),
-                )
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    for (var i = 0; i < payouts.length; i++) ...[
-                      _PayoutRow(payout: payouts[i]),
-                      if (i < payouts.length - 1)
-                        const Divider(height: AppSpacing.lg),
-                    ],
-                  ],
-                ),
-        ),
-      ],
-    );
-  }
-}
-
-class _PayoutRow extends StatelessWidget {
-  final RecentPayout payout;
-  const _PayoutRow({required this.payout});
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    return Row(
-      children: [
-        CircleAvatar(
-          radius: 16,
-          backgroundColor: AppColors.surface,
-          child: Icon(
-            _statusIcon(payout.status),
-            size: 16,
-            color: _statusColor(payout.status),
-          ),
-        ),
-        const SizedBox(width: AppSpacing.xs),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+              Icon(icon, size: 16, color: AppColors.primary),
+              const SizedBox(width: AppSpacing.xs),
               Text(
-                payout.userName,
-                style: text.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              Text(
-                _formatDate(payout.processedAt ?? payout.requestedAt),
-                style: text.bodySmall?.copyWith(
-                  color: AppColors.onSurfaceMuted,
+                title,
+                style: text.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
           ),
-        ),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              _formatTsh(payout.amount),
-              style: text.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            Text(
-              _statusLabel(payout.status),
-              style: text.bodySmall?.copyWith(
-                color: _statusColor(payout.status),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  static IconData _statusIcon(String s) => switch (s) {
-        'paid' => Icons.check_circle,
-        'pending' || 'processing' => Icons.schedule,
-        'failed' => Icons.error_outline,
-        _ => Icons.help_outline,
-      };
-
-  static Color _statusColor(String s) => switch (s) {
-        'paid' => AppColors.success,
-        'pending' || 'processing' => AppColors.warning,
-        'failed' => AppColors.error,
-        _ => AppColors.onSurfaceMuted,
-      };
-
-  static String _statusLabel(String s) => switch (s) {
-        'paid' => 'Paid',
-        'pending' => 'Pending',
-        'processing' => 'Processing',
-        'failed' => 'Failed',
-        _ => s,
-      };
-}
-
-// ─────────────────────────────────────────────────────────────
-// Shared helpers
-// ─────────────────────────────────────────────────────────────
-
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  final IconData icon;
-  final String? subtitle;
-
-  const _SectionHeader({
-    required this.title,
-    required this.icon,
-    this.subtitle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(icon, size: 18, color: AppColors.primary),
-            const SizedBox(width: AppSpacing.xs),
-            Text(
-              title,
-              style: text.titleSmall?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-        if (subtitle != null) ...[
-          const SizedBox(height: 2),
-          Text(
-            subtitle!,
-            style: text.bodySmall?.copyWith(
-              color: AppColors.onSurfaceMuted,
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _Row extends StatelessWidget {
-  final String label;
-  final String value;
-  final String? detail;
-  final bool isWarning;
-
-  const _Row({
-    required this.label,
-    required this.value,
-    this.detail,
-    this.isWarning = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: text.bodyMedium?.copyWith(
-                    color: AppColors.onSurfaceMuted,
-                  ),
-                ),
-                if (detail != null)
-                  Text(
-                    detail!,
-                    style: text.bodySmall?.copyWith(
-                      color: AppColors.onSurfaceSubtle,
-                      fontSize: 11,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          Text(
-            value,
-            style: text.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: isWarning ? AppColors.warning : AppColors.onSurface,
-            ),
-          ),
+          const SizedBox(height: AppSpacing.sm),
+          ...children,
         ],
       ),
     );
   }
-}
-
-String _formatTsh(double amount) {
-  if (amount.abs() >= 1000000) {
-    return 'TZS ${(amount / 1000000).toStringAsFixed(1)}M';
-  }
-  if (amount.abs() >= 10000) {
-    return 'TZS ${(amount / 1000).toStringAsFixed(1)}k';
-  }
-  return 'TZS ${amount.toStringAsFixed(0)}';
-}
-
-String _formatDate(DateTime? dt) {
-  if (dt == null) return '—';
-  const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-  ];
-  return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
 }

@@ -18,6 +18,14 @@ class ApiEndpoints {
   static const String ownerUsers = '/owner/users';
   static const String ownerSettings = '/owner/settings';
   static const String ownerPricingConfig = '/owner/pricing-config';
+  static const String ownerFinanceSummary = '/owner/finance/summary';
+
+  // ─── Owner ledger (Phase 11.6) ───────────────────────────────────
+  static const String ownerPayments = '/owner/payments';
+  static const String ownerEarnings = '/owner/earnings';
+  static const String ownerPayouts = '/owner/payouts';
+  static const String ownerLedgerReconcile = '/owner/ledger/reconcile';
+  static const String ownerLedgerReconcileLast = '/owner/ledger/reconcile/last';
 
   // ─── Manager ─────────────────────────────────────────────────────
   static const String managerStaff = '/manager/staff';
@@ -29,12 +37,6 @@ class ApiEndpoints {
   static const String distributorDeliveries = '/distributor/deliveries';
   static const String distributorPricePreview = '/distributor/deliveries/price-preview';
   static const String distributorBranches = '/distributor/branches';
-
-  // ─── Distributor payments (Phase 11.5) ───────────────────────────
-  // Server endpoints (Phase 11.2):
-  //   POST /distributor/payments/initiate    → { delivery_id, phone_number?, stage? }
-  //   GET  /distributor/payments/{id}
-  //   POST /distributor/payments/{id}/refresh
   static const String distributorPayments = '/distributor/payments';
   static const String distributorPaymentsInitiate = '/distributor/payments/initiate';
 
