@@ -290,7 +290,7 @@ class Delivery {
           ? null
           : asInt(json['hours_at_branch']),
       items: asList(json['items'], DeliveryItem.fromJson),
-      dispatcherTicket: rawTicket is Map
+      dispatcherTicket: rawTicket is Map && rawTicket.isNotEmpty
           ? DispatcherTicket.fromJson(Map<String, dynamic>.from(rawTicket))
           : null,
       createdAt: parseDate(json['created_at']),

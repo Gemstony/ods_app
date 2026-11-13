@@ -39,7 +39,7 @@ class PackageVerifyResult {
       ),
       canRelease: json['can_release'] == true,
       reason: json['reason'] as String?,
-      rider: rawRider is Map
+      rider: rawRider is Map && rawRider.isNotEmpty
           ? RiderRef.fromJson(Map<String, dynamic>.from(rawRider))
           : null,
     );

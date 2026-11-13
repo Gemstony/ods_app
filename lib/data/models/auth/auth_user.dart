@@ -1,3 +1,5 @@
+import '../../../core/utils/json_helpers.dart';
+
 /// A user returned by the backend's `/auth/login`, `/auth/refresh`, and
 /// `/auth/me` endpoints.
 ///
@@ -72,21 +74,24 @@ class AuthUser {
       role: json['role'] as String,
       status: json['status'] as String,
       branchId: json['branch_id'] == null ? null : _asInt(json['branch_id']),
-      distributorId: json['distributor_id'] as String?,
+      distributorId: asStringOrNull(json['distributor_id']),
       dispatcherEnabled: _asBool(json['dispatcher_enabled']),
       emailVerifiedAt: _parseDate(json['email_verified_at']),
       createdAt: _parseDate(json['created_at']),
-      permissions: (json['permissions'] as List<dynamic>? ?? const [])
-          .map((e) => e.toString())
-          .toList(growable: false),
-      nida: json['nida'] as String?,
-      sex: json['sex'] as String?,
+      permissions: json['permissions'] is List
+          ? (json['permissions'] as List)
+              .map((e) => e.toString())
+              .toList(growable: false)
+          : const [],
+      nida: asStringOrNull(json['nida']),
+      sex: asStringOrNull(json['sex']),
       dateOfBirth: _parseDate(json['date_of_birth']),
-      vehicleType: json['vehicle_type'] as String?,
-      vehicleColor: json['vehicle_color'] as String?,
-      vehicleOwnership: json['vehicle_ownership'] as String?,
-      plateNumber: json['plate_number'] as String?,
-      branch: json['branch'] is Map<String, dynamic>
+      vehicleType: asStringOrNull(json['vehicle_type']),
+      vehicleColor: asStringOrNull(json['vehicle_color']),
+      vehicleOwnership: asStringOrNull(json['vehicle_ownership']),
+      plateNumber: asStringOrNull(json['plate_number']),
+      branch: json['branch'] is Map<String, dynamic> &&
+              (json['branch'] as Map).isNotEmpty
           ? UserBranchRef.fromJson(json['branch'] as Map<String, dynamic>)
           : null,
     );
@@ -129,11 +134,9 @@ class UserBranchRef {
 
   factory UserBranchRef.fromJson(Map<String, dynamic> json) {
     return UserBranchRef(
-      id: json['id'] is int
-          ? json['id'] as int
-          : int.parse(json['id'].toString()),
-      name: json['name'] as String,
-      code: json['code'] as String,
+      id: asInt(json['id'] ?? 0),
+      name: asStringOrNull(json['name']) ?? '',
+      code: asStringOrNull(json['code']) ?? '',
     );
   }
 }

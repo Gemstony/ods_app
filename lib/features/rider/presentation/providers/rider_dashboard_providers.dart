@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/utils/logger.dart';
 import '../../../../data/models/delivery.dart';
 import '../../../../data/models/rider_dashboard_kpis.dart';
 import '../../../../shared/providers/repository_providers.dart';
@@ -62,7 +63,12 @@ final riderHomeProvider = FutureProvider<RiderHomeData>((ref) async {
   );
   final deliveries = deliveriesResult.fold(
     onSuccess: (l) => l,
-    onFailure: (f) => throw f,
+    onFailure: (failure) {
+      AppLogger.w(
+        'Could not load rider deliveries for home: ${failure.message}',
+      );
+      return const <Delivery>[];
+    },
   );
 
   return RiderHomeData(kpis: kpis, deliveries: deliveries);

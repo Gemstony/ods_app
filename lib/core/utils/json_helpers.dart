@@ -56,3 +56,17 @@ List<T>? asList<T>(
       .map((item) => itemFromJson(Map<String, dynamic>.from(item)))
       .toList(growable: false);
 }
+
+/// Returns [v] as a `String?`, tolerating the placeholders the backend
+/// emits for absent optional fields.
+///
+/// Several API resources serialize missing conditional attributes as
+/// `[]` or `{}` (Laravel `MissingValue` leaking through `toArray()`).
+/// A plain `as String?` cast crashes on those; this helper returns null
+/// for Lists/Maps and coerces num/bool via `toString()`.
+String? asStringOrNull(dynamic v) {
+  if (v == null) return null;
+  if (v is String) return v;
+  if (v is num || v is bool) return v.toString();
+  return null;
+}

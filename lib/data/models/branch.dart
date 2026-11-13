@@ -106,7 +106,8 @@ class Branch {
       createdAt: parseDate(json['created_at']),
       updatedAt: parseDate(json['updated_at']),
       deletedAt: parseDate(json['deleted_at']),
-      currentManager: json['current_manager'] is Map<String, dynamic>
+      currentManager: json['current_manager'] is Map<String, dynamic> &&
+              (json['current_manager'] as Map).isNotEmpty
           ? BranchManagerRef.fromJson(
               json['current_manager'] as Map<String, dynamic>)
           : null,
