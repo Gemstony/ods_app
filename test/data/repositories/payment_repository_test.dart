@@ -150,9 +150,9 @@ void main() {
     });
   });
 
-  // ─── status() ──────────────────────────────────────────────
-  group('PaymentRepository.status', () {
-    test('polls the payment reference', () async {
+  // ─── show() ────────────────────────────────────────────────
+  group('PaymentRepository.show', () {
+    test('polls the payment by id', () async {
       final adapter = _CapturingAdapter(
         statusCode: 200,
         body: _successEnvelope(_paymentJson(
@@ -163,16 +163,13 @@ void main() {
       );
       final repo = PaymentRepository(dio: _dioWith(adapter));
 
-      final result = await repo.status('PAY-20261024-ABC123');
+      final result = await repo.show(1);
 
       expect(result, isA<ApiSuccess<Payment>>());
       expect(result.dataOrNull!.status, PaymentStatus.completed);
       expect(result.dataOrNull!.isCompleted, isTrue);
       expect(result.dataOrNull!.providerReference, 'CP-REF-999');
-      expect(
-        adapter.lastRequest!.path,
-        '/payments/PAY-20261024-ABC123/status',
-      );
+      expect(adapter.lastRequest!.path, '/distributor/payments/1');
       expect(adapter.lastRequest!.method, 'GET');
     });
 
@@ -183,7 +180,7 @@ void main() {
       );
       final repo = PaymentRepository(dio: _dioWith(adapter));
 
-      final result = await repo.status('PAY-ABC');
+      final result = await repo.show(1);
 
       expect(result.dataOrNull!.isFailed, isTrue);
     });
@@ -199,47 +196,50 @@ void main() {
       );
       final repo = PaymentRepository(dio: _dioWith(adapter));
 
-      final result = await repo.status('PAY-UNKNOWN');
+      final result = await repo.show(999);
 
       expect(result.failureOrNull!.type.name, 'notFound');
     });
   });
 
-  // ─── listForDelivery() ─────────────────────────────────────
-  group('PaymentRepository.listForDelivery', () {
-    test('sends delivery_id query param and parses list', () async {
+  // ─── refresh() ─────────────────────────────────────────────
+  group('PaymentRepository.refresh', () {
+    test('posts to the refresh endpoint and returns payment', () async {
       final adapter = _CapturingAdapter(
         statusCode: 200,
-        body: _successEnvelope({
-          'data': [
-            _paymentJson(id: 1, stage: 'ods_fee', amount: 2000.00),
-            _paymentJson(id: 2, stage: 'transport_fare', amount: 3500.00),
-          ],
-        }),
+        body: _successEnvelope(_paymentJson(
+          status: 'completed',
+          providerReference: 'CP-REF-999',
+        )),
       );
       final repo = PaymentRepository(dio: _dioWith(adapter));
 
-      final result = await repo.listForDelivery(100);
+      final result = await repo.refresh(1);
 
-      expect(result, isA<ApiSuccess<List<Payment>>>());
-      final payments = result.dataOrNull!;
-      expect(payments.length, 2);
-      expect(payments[0].stage, PaymentStage.ods_fee);
-      expect(payments[1].stage, PaymentStage.transport_fare);
-      expect(adapter.lastRequest!.path, '/payments');
-      expect(adapter.lastRequest!.queryParameters, {'delivery_id': 100});
+      expect(result, isA<ApiSuccess<Payment>>());
+      expect(result.dataOrNull!.isCompleted, isTrue);
+      expect(result.dataOrNull!.providerReference, 'CP-REF-999');
+      expect(
+        adapter.lastRequest!.path,
+        '/distributor/payments/1/refresh',
+      );
+      expect(adapter.lastRequest!.method, 'POST');
     });
 
-    test('returns empty list when no payments exist', () async {
+    test('maps 404 to notFound failure', () async {
       final adapter = _CapturingAdapter(
-        statusCode: 200,
-        body: _successEnvelope({'data': <Map<String, dynamic>>[]}),
+        statusCode: 404,
+        body: {
+          'success': false,
+          'message': 'Payment not found.',
+          'errors': null,
+        },
       );
       final repo = PaymentRepository(dio: _dioWith(adapter));
 
-      final result = await repo.listForDelivery(100);
+      final result = await repo.refresh(999);
 
-      expect(result.dataOrNull, isEmpty);
+      expect(result.failureOrNull!.type.name, 'notFound');
     });
   });
 }

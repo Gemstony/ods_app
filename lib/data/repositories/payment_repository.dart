@@ -5,89 +5,72 @@ import '../../core/network/api_endpoints.dart';
 import '../../core/network/api_result.dart';
 import '../models/payment.dart';
 
-/// Talks to every `/api/v1/payments/*` endpoint.
+/// Talks to `/api/v1/distributor/payments/*` (Phase 11.2 backend).
 ///
-/// Flow (from the ODS document, Phase 11 implements the backend side):
-///   1. Distributor creates a delivery in `pending_payment` status.
-///   2. App calls [initiate] → server creates a Payment row and pushes a
-///      ClickPesa USSD request to the distributor's phone.
-///   3. App polls [status] every few seconds until the payment is
-///      `completed` or `failed`.
-///   4. When `completed`, the server updates the delivery to `paid`.
+/// Flow:
+///   1. `POST initiate` → backend creates Payment row, calls ClickPesa
+///      to push a USSD prompt to the given phone.
+///   2. `POST refresh` polls the current state — the backend queries
+///      ClickPesa and applies any state transition.
+///   3. When terminal (completed / failed), caller stops polling.
 ///
-/// Regional deliveries use two stages (`ods_fee` and `transport_fare`).
-/// Local deliveries use `full` only.
+/// `GET show` is a lightweight read (no provider call) — useful for
+/// rendering known state without touching ClickPesa.
 class PaymentRepository {
   final Dio _dio;
 
   PaymentRepository({Dio? dio}) : _dio = dio ?? ApiClient.instance.dio;
 
-  // ─── Initiate ─────────────────────────────────────────────
-  /// POST /payments/initiate
+  /// POST /distributor/payments/initiate
   ///
-  /// Starts the payment flow for [deliveryId] at the given [stage].
-  /// The response carries the authoritative amount (computed by the
-  /// server from `PricingConfig` + the delivery) and the reference the
-  /// caller should poll with [status].
-  ///
-  /// The caller must not send an amount — the server ignores any
-  /// client-supplied amount to prevent tampering.
+  /// Client must NOT send an amount — the backend computes it from the
+  /// delivery + PricingConfig. `phoneNumber` is optional; when absent the
+  /// backend uses the authenticated distributor's account phone.
   Future<ApiResult<Payment>> initiate({
     required int deliveryId,
+    String? phoneNumber,
     PaymentStage stage = PaymentStage.full,
   }) {
     return ApiResult.guard(() async {
       final response = await _dio.post<Map<String, dynamic>>(
-        ApiEndpoints.paymentsInitiate,
+        ApiEndpoints.distributorPaymentsInitiate,
         data: {
           'delivery_id': deliveryId,
+          if (phoneNumber != null && phoneNumber.isNotEmpty)
+            'phone_number': phoneNumber,
           'stage': stage.name,
         },
       );
-
       return Payment.fromJson(_extractData(response));
     });
   }
 
-  // ─── Poll status ──────────────────────────────────────────
-  /// GET /payments/{reference}/status
+  /// GET /distributor/payments/{id}
   ///
-  /// Fetches the current state of a payment by reference. Safe to call
-  /// repeatedly — the backend is read-only for this endpoint and the
-  /// ClickPesa webhook (Phase 11) is what actually transitions the state.
-  ///
-  /// A completed payment will also have had its delivery updated to
-  /// `paid` server-side, so callers should re-fetch the delivery after
-  /// seeing `status.isCompleted == true`.
-  Future<ApiResult<Payment>> status(String reference) {
+  /// Read-only — never touches ClickPesa. Use for display.
+  Future<ApiResult<Payment>> show(int paymentId) {
     return ApiResult.guard(() async {
       final response = await _dio.get<Map<String, dynamic>>(
-        '${ApiEndpoints.payments}/$reference/status',
+        '${ApiEndpoints.distributorPayments}/$paymentId',
       );
-
       return Payment.fromJson(_extractData(response));
     });
   }
 
-  // ─── List for delivery ────────────────────────────────────
-  /// GET /payments?delivery_id={id}
+  /// POST /distributor/payments/{id}/refresh
   ///
-  /// Returns all payment attempts for a delivery. Useful on the delivery
-  /// detail screen (Regional deliveries have two stages; failed attempts
-  /// are also shown so the distributor can see what happened).
-  Future<ApiResult<List<Payment>>> listForDelivery(int deliveryId) {
+  /// Asks the backend to query ClickPesa and apply the current state.
+  /// Safe to call repeatedly — the backend is idempotent per payment.
+  Future<ApiResult<Payment>> refresh(int paymentId) {
     return ApiResult.guard(() async {
-      final response = await _dio.get<Map<String, dynamic>>(
-        ApiEndpoints.payments,
-        queryParameters: {'delivery_id': deliveryId},
+      final response = await _dio.post<Map<String, dynamic>>(
+        '${ApiEndpoints.distributorPayments}/$paymentId/refresh',
       );
-
-      final data = _extractData(response);
-      return _extractList(data, Payment.fromJson);
+      return Payment.fromJson(_extractData(response));
     });
   }
 
-  // ─── Envelope helpers ────────────────────────────────────
+  // ─── Envelope ────────────────────────────────────────────
   Map<String, dynamic> _extractData(Response<Map<String, dynamic>> response) {
     final body = response.data;
     if (body == null) throw StateError('Empty response body');
@@ -96,19 +79,5 @@ class PaymentRepository {
       throw StateError('Unexpected envelope shape: $body');
     }
     return data;
-  }
-
-  List<T> _extractList<T>(
-    Map<String, dynamic> data,
-    T Function(Map<String, dynamic> json) itemFromJson,
-  ) {
-    final raw = data['data'] ?? data;
-    if (raw is! List) {
-      throw StateError('Expected list in data, got ${raw.runtimeType}');
-    }
-    return raw
-        .whereType<Map>()
-        .map((j) => itemFromJson(Map<String, dynamic>.from(j)))
-        .toList(growable: false);
   }
 }

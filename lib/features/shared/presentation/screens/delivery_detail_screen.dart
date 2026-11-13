@@ -5,6 +5,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../data/models/delivery.dart';
 import '../../../../widgets/widgets.dart';
+import '../../../distributor/presentation/widgets/payment_action_section.dart';
 
 /// Shared delivery-detail screen.
 ///
@@ -15,12 +16,11 @@ import '../../../../widgets/widgets.dart';
 ///   - Recipient (Send + Regional)
 ///   - Items list
 ///   - Payment summary
+///   - Distributor-only payment action (when [showDistributorPayment])
 ///   - [extraSections] appended at the bottom for role-specific content
 ///
 /// Each role opens this from its own list and supplies its own
 /// `onRefresh` (or `null` for a static view) plus any extra widgets.
-/// This is the first phase where it's used (Manager, Phase 6.4) —
-/// Distributor and Rider will reuse it in Phases 7 and 8.
 class DeliveryDetailScreen extends StatefulWidget {
   /// The initial delivery — typically the one the user tapped in the list.
   final Delivery delivery;
@@ -33,11 +33,18 @@ class DeliveryDetailScreen extends StatefulWidget {
   /// Manager passes [] for now; Distributor/Rider will add actions.
   final List<Widget> extraSections;
 
+  /// When true, renders a payment-action section at the bottom for
+  /// `pending_payment` deliveries (Phase 11.5). Distributor opens this
+  /// with `true`; every other role leaves it `false` — they never pay
+  /// for a delivery directly.
+  final bool showDistributorPayment;
+
   const DeliveryDetailScreen({
     super.key,
     required this.delivery,
     this.onRefresh,
     this.extraSections = const [],
+    this.showDistributorPayment = false,
   });
 
   @override
@@ -95,6 +102,15 @@ class _DeliveryDetailScreenState extends State<DeliveryDetailScreen> {
             ],
             const SizedBox(height: AppSpacing.lg),
             PaymentSummary(delivery: d),
+            // Phase 11.5 — Distributor payment CTA (pending_payment only).
+            if (widget.showDistributorPayment &&
+                d.status == DeliveryStatus.pending_payment) ...[
+              const SizedBox(height: AppSpacing.lg),
+              PaymentActionSection(
+                delivery: d,
+                onRefresh: _refresh,
+              ),
+            ],
             if (d.notes != null && d.notes!.isNotEmpty) ...[
               const SizedBox(height: AppSpacing.lg),
               _NotesSection(notes: d.notes!),

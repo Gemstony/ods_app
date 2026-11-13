@@ -14,7 +14,9 @@ import '../providers/distributor_history_providers.dart';
 ///
 /// Status-group chips (All / Active / Delivered / Cancelled) + service
 /// type dropdown + search by tracking ID. Tap a card opens the shared
-/// `DeliveryDetailScreen`.
+/// `DeliveryDetailScreen` with distributor-only payment action enabled
+/// (Phase 11.5) and refreshes both the detail row and the list when
+/// payment completes.
 class DistributorHistoryTab extends ConsumerStatefulWidget {
   const DistributorHistoryTab({super.key});
 
@@ -89,9 +91,10 @@ class _DistributorHistoryTabState
             ),
             data: (deliveries) {
               if (deliveries.isEmpty) {
-                final hasFilters = filter.group != DistributorHistoryGroup.all ||
-                    filter.serviceType != null ||
-                    filter.search != null;
+                final hasFilters =
+                    filter.group != DistributorHistoryGroup.all ||
+                        filter.serviceType != null ||
+                        filter.search != null;
                 return EmptyView(
                   title: 'No deliveries',
                   subtitle: hasFilters
@@ -141,8 +144,13 @@ class _DistributorHistoryTabState
     await Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => DeliveryDetailScreen(
         delivery: delivery,
+        showDistributorPayment: true, // Phase 11.5
         onRefresh: () async {
           try {
+            // Refresh the detail row AND the list behind us. After a
+            // successful payment the delivery becomes `paid`, which the
+            // history card should reflect immediately on return.
+            ref.invalidate(distributorHistoryProvider);
             return await ref.read(
               distributorDeliveryDetailProvider(delivery.id).future,
             );
