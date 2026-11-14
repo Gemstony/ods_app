@@ -6,38 +6,23 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../data/models/delivery.dart';
 import '../../../../widgets/widgets.dart';
 import '../../../distributor/presentation/widgets/payment_action_section.dart';
+import '../../../distributor/presentation/widgets/verification_codes_sheet.dart';
 
 /// Shared delivery-detail screen.
 ///
-/// Displays the common fields of a [Delivery] in a structured layout:
-///   - Header (tracking ID, status, service type)
-///   - Timeline (paid / assigned / picked up / delivered)
-///   - Pickup & destination addresses
-///   - Recipient (Send + Regional)
-///   - Items list
-///   - Payment summary
-///   - Distributor-only payment action (when [showDistributorPayment])
-///   - [extraSections] appended at the bottom for role-specific content
+/// Optional role-specific sections render at the bottom when the
+/// corresponding flag is set and the delivery is in a compatible state:
+///   - `showDistributorPayment`      → payment CTA for `pending_payment`
+///   - `showDistributorVerification` → code-issue CTA for `paid…accepted`
 ///
-/// Each role opens this from its own list and supplies its own
-/// `onRefresh` (or `null` for a static view) plus any extra widgets.
+/// Everything else (header, timeline, route, recipient, items, payment
+/// summary, notes, extra sections) is common to all roles.
 class DeliveryDetailScreen extends StatefulWidget {
-  /// The initial delivery — typically the one the user tapped in the list.
   final Delivery delivery;
-
-  /// Optional async refresh; called by pull-to-refresh. Return the
-  /// updated delivery, or null on failure to keep the current one.
   final Future<Delivery?> Function()? onRefresh;
-
-  /// Role-specific widgets rendered below the shared sections.
-  /// Manager passes [] for now; Distributor/Rider will add actions.
   final List<Widget> extraSections;
-
-  /// When true, renders a payment-action section at the bottom for
-  /// `pending_payment` deliveries (Phase 11.5). Distributor opens this
-  /// with `true`; every other role leaves it `false` — they never pay
-  /// for a delivery directly.
   final bool showDistributorPayment;
+  final bool showDistributorVerification;
 
   const DeliveryDetailScreen({
     super.key,
@@ -45,6 +30,7 @@ class DeliveryDetailScreen extends StatefulWidget {
     this.onRefresh,
     this.extraSections = const [],
     this.showDistributorPayment = false,
+    this.showDistributorVerification = false,
   });
 
   @override
@@ -73,6 +59,15 @@ class _DeliveryDetailScreenState extends State<DeliveryDetailScreen> {
     }
   }
 
+  bool _canIssueVerification(Delivery d) {
+    return const {
+      DeliveryStatus.paid,
+      DeliveryStatus.batched,
+      DeliveryStatus.assigned,
+      DeliveryStatus.accepted,
+    }.contains(d.status);
+  }
+
   @override
   Widget build(BuildContext context) {
     final d = _delivery;
@@ -80,9 +75,7 @@ class _DeliveryDetailScreenState extends State<DeliveryDetailScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(d.trackingId)),
       body: RefreshIndicator(
-        onRefresh: widget.onRefresh == null
-            ? () async {}
-            : _refresh,
+        onRefresh: widget.onRefresh == null ? () async {} : _refresh,
         child: ListView(
           padding: const EdgeInsets.all(AppSpacing.screenH),
           physics: const AlwaysScrollableScrollPhysics(),
@@ -102,7 +95,6 @@ class _DeliveryDetailScreenState extends State<DeliveryDetailScreen> {
             ],
             const SizedBox(height: AppSpacing.lg),
             PaymentSummary(delivery: d),
-            // Phase 11.5 — Distributor payment CTA (pending_payment only).
             if (widget.showDistributorPayment &&
                 d.status == DeliveryStatus.pending_payment) ...[
               const SizedBox(height: AppSpacing.lg),
@@ -110,6 +102,11 @@ class _DeliveryDetailScreenState extends State<DeliveryDetailScreen> {
                 delivery: d,
                 onRefresh: _refresh,
               ),
+            ],
+            if (widget.showDistributorVerification &&
+                _canIssueVerification(d)) ...[
+              const SizedBox(height: AppSpacing.lg),
+              _VerificationCodesSection(delivery: d),
             ],
             if (d.notes != null && d.notes!.isNotEmpty) ...[
               const SizedBox(height: AppSpacing.lg),
@@ -122,6 +119,64 @@ class _DeliveryDetailScreenState extends State<DeliveryDetailScreen> {
             const SizedBox(height: AppSpacing.xl),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Verification codes section (Phase 12.3)
+// ─────────────────────────────────────────────────────────────
+
+class _VerificationCodesSection extends StatelessWidget {
+  final Delivery delivery;
+  const _VerificationCodesSection({required this.delivery});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+        border: Border.all(color: AppColors.info, width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.lock_outline_rounded,
+                size: 18,
+                color: AppColors.info,
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Text(
+                'Handover verification',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Issue a pair of codes to verify the package handover. '
+            'The Rider/Receiver will ask for the distributor code at '
+            'pickup, and the recipient will share their code at delivery.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.onSurfaceMuted,
+                ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          AppButton(
+            label: 'Generate verification codes',
+            icon: Icons.vpn_key_rounded,
+            onPressed: () => VerificationCodesSheet.show(context, delivery),
+            variant: AppButtonVariant.secondary,
+          ),
+        ],
       ),
     );
   }
@@ -374,8 +429,7 @@ class _RouteSection extends StatelessWidget {
         label: 'Destination',
         value: _destinationLine(),
       ),
-      if (delivery.isRegional &&
-          delivery.destinationBusStop != null) ...[
+      if (delivery.isRegional && delivery.destinationBusStop != null) ...[
         const SizedBox(height: AppSpacing.xs),
         _RouteRow(
           icon: Icons.directions_bus_rounded,

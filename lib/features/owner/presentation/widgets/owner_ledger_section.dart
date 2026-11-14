@@ -12,7 +12,7 @@ import '../screens/owner_reconciliation_screen.dart';
 /// Ledger hub shown at the bottom of the Owner Finance tab.
 ///
 /// Three tap cards → dedicated list screens. One reconciliation status
-/// tile → opens the reconciliation screen where Owner can run it.
+/// tile → opens the reconciliation screen where the Owner can run it.
 class OwnerLedgerSection extends ConsumerWidget {
   const OwnerLedgerSection({super.key});
 
@@ -21,7 +21,7 @@ class OwnerLedgerSection extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _SectionHeader(
+        const _SectionHeader(
           icon: Icons.menu_book_rounded,
           title: 'Ledger',
         ),
@@ -61,7 +61,7 @@ class OwnerLedgerSection extends ConsumerWidget {
         const SizedBox(height: AppSpacing.lg),
         const _SectionHeader(
           icon: Icons.sync_rounded,
-          title: 'Payment Reconciliation',
+          title: 'Payment reconciliation',
         ),
         const SizedBox(height: AppSpacing.xs),
         _ReconciliationTile(

@@ -88,7 +88,10 @@ class _FakeDeliveryRepo extends DeliveryRepository {
   }
 
   @override
-  Future<ApiResult<Delivery>> releaseReceiverPackage(int id) async {
+  Future<ApiResult<Delivery>> releaseReceiverPackage(
+    int id, {
+    String? verificationCode,
+  }) async {
     releaseCallCount++;
     lastReleasedId = id;
     if (releaseResult == null) {
@@ -180,9 +183,7 @@ void main() {
     final repo = _FakeDeliveryRepo(
       listResult: ApiSuccess<List<Delivery>>([
         _delivery(
-            id: 1,
-            trackingId: 'ODS-ACCEPTED',
-            status: DeliveryStatus.accepted),
+            id: 1, trackingId: 'ODS-ACCEPTED', status: DeliveryStatus.accepted),
         _delivery(id: 2, trackingId: 'ODS-PAID', status: DeliveryStatus.paid),
       ]),
     );
@@ -231,8 +232,7 @@ void main() {
     expect(find.text('Jane Customer'), findsOneWidget);
   });
 
-  testWidgets('Release button only on accepted deliveries',
-      (tester) async {
+  testWidgets('Release button only on accepted deliveries', (tester) async {
     _useLargeViewport(tester);
     final repo = _FakeDeliveryRepo(
       listResult: ApiSuccess<List<Delivery>>([
@@ -305,8 +305,7 @@ void main() {
     expect(find.textContaining('Jane Rider'), findsOneWidget);
   });
 
-  testWidgets('Cancel in confirm dialog does not call release',
-      (tester) async {
+  testWidgets('Cancel in confirm dialog does not call release', (tester) async {
     _useLargeViewport(tester);
     final accepted = _delivery(id: 7, status: DeliveryStatus.accepted);
     final repo = _FakeDeliveryRepo(
@@ -462,9 +461,7 @@ void main() {
     final repo = _FakeDeliveryRepo(
       listResult: ApiSuccess<List<Delivery>>([
         _delivery(
-            id: 1,
-            trackingId: 'ODS-ACCEPTED',
-            status: DeliveryStatus.accepted),
+            id: 1, trackingId: 'ODS-ACCEPTED', status: DeliveryStatus.accepted),
         _delivery(id: 2, trackingId: 'ODS-PAID', status: DeliveryStatus.paid),
       ]),
     );

@@ -127,9 +127,12 @@ class _FakeDeliveryRepo extends DeliveryRepository {
       throw StateError('Not stubbed in dashboard tests');
 
   @override
-  Future<ApiResult<Delivery>> releaseReceiverPackage(int id) async =>
+  Future<ApiResult<Delivery>> releaseReceiverPackage(
+    int id, {
+    String? verificationCode,
+  }) async =>
       throw StateError('Not stubbed in dashboard tests');
-
+      
   @override
   Future<ApiResult<List<Delivery>>> listReceiverRegional({
     List<DeliveryStatus>? statuses,

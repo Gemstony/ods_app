@@ -1,29 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/network/api_result.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../data/models/delivery.dart';
 import '../../../../data/models/package_verify_result.dart';
+import '../../../../data/repositories/delivery_repository.dart';
 import '../../../../shared/providers/repository_providers.dart';
 import '../../../../widgets/widgets.dart';
+import '../../../shared/presentation/widgets/verification_code_entry_sheet.dart';
 import '../providers/receiver_packages_providers.dart';
 
-/// The Receiver's Packages tab — receive-service deliveries at the
-/// receiver's branch, with the handover (verify → release) flow.
-///
-/// Release button appears only on `accepted` deliveries (rider has
-/// accepted, awaiting branch handover). The flow:
-///   1. Tap Release → verify endpoint (catches stale state after list load)
-///   2. If can_release: confirm dialog showing rider name → release
-///   3. If not: informational dialog showing reason
-///
-/// Busy state is scoped to the two API calls (verify, release) only —
-/// never overlaps with a dialog, so `pumpAndSettle` and the user-facing
-/// flow both stay responsive.
-///
-/// Phase 12 will layer code verification onto the same verify → release
-/// flow without changing this UI structure.
 class ReceiverPackagesTab extends ConsumerStatefulWidget {
   const ReceiverPackagesTab({super.key});
 
@@ -33,8 +21,6 @@ class ReceiverPackagesTab extends ConsumerStatefulWidget {
 }
 
 class _ReceiverPackagesTabState extends ConsumerState<ReceiverPackagesTab> {
-  /// Delivery IDs with an in-flight verify/release request. Renders a
-  /// spinner on those tiles only, keeping the rest interactive.
   final Set<int> _busyIds = <int>{};
 
   @override
@@ -72,7 +58,7 @@ class _ReceiverPackagesTabState extends ConsumerState<ReceiverPackagesTab> {
               await ref.read(receiverPackagesProvider.future);
             },
             child: filtered.isEmpty
-                ? _buildEmptyScrollable(hasAny: hasAny, filter: filter)
+                ? _buildEmptyScrollable(hasAny: hasAny)
                 : _buildList(filtered),
           ),
         ),
@@ -99,10 +85,7 @@ class _ReceiverPackagesTabState extends ConsumerState<ReceiverPackagesTab> {
     );
   }
 
-  Widget _buildEmptyScrollable({
-    required bool hasAny,
-    required ReceiverPackagesFilter filter,
-  }) {
+  Widget _buildEmptyScrollable({required bool hasAny}) {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(AppSpacing.screenH),
@@ -122,7 +105,6 @@ class _ReceiverPackagesTabState extends ConsumerState<ReceiverPackagesTab> {
   Future<void> _onReleaseTap(Delivery delivery) async {
     final repo = ref.read(deliveryRepositoryProvider);
 
-    // 1. Verify — busy is on ONLY during this call.
     setState(() => _busyIds.add(delivery.id));
     final verifyResult = await repo.verifyReceiverPackage(delivery.id);
     if (!mounted) return;
@@ -141,8 +123,6 @@ class _ReceiverPackagesTabState extends ConsumerState<ReceiverPackagesTab> {
     }
     if (verify == null) return;
 
-    // 2. Not ready → informational dialog, no state change.
-    //    Busy is already off here — no spinner behind the dialog.
     if (!verify!.canRelease) {
       await _showCannotRelease(
         verify!.reason ?? 'Package cannot be released.',
@@ -150,24 +130,67 @@ class _ReceiverPackagesTabState extends ConsumerState<ReceiverPackagesTab> {
       return;
     }
 
-    // 3. Ready → confirm dialog (no spinner behind it).
     final riderName = verify!.rider?.name ?? 'the assigned rider';
     final confirmed = await _showConfirm(riderName);
     if (confirmed != true || !mounted) return;
 
-    // 4. Release — busy is on ONLY during this call.
     setState(() => _busyIds.add(delivery.id));
-    final releaseResult = await repo.releaseReceiverPackage(delivery.id);
+
+    final result = await repo.releaseReceiverPackage(delivery.id);
+
     if (!mounted) return;
     setState(() => _busyIds.remove(delivery.id));
 
-    releaseResult.fold(
-      onSuccess: (_) {
-        ref.invalidate(receiverPackagesProvider);
-        _showSnackbar('Package released.');
-      },
+    if (_handleIfVerificationRequired(
+      result: result,
+      delivery: delivery,
+      repo: repo,
+      onSuccess: _handleReleaseSuccess,
+    )) {
+      return;
+    }
+
+    result.fold(
+      onSuccess: (_) => _handleReleaseSuccess(),
       onFailure: (f) => _showSnackbar(f.message),
     );
+  }
+
+  void _handleReleaseSuccess() {
+    ref.invalidate(receiverPackagesProvider);
+    _showSnackbar('Package released.');
+  }
+
+   bool _handleIfVerificationRequired({
+    required ApiResult<Delivery> result,
+    required Delivery delivery,
+    required DeliveryRepository repo,
+    required VoidCallback onSuccess,
+  }) {
+    bool verificationRequired = false;
+
+    result.fold(
+      onSuccess: (_) {},
+      onFailure: (failure) {
+        verificationRequired = failure.message
+            .toLowerCase()
+            .contains('verification code is required');
+      },
+    );
+
+    if (!verificationRequired) return false;
+
+    VerificationCodeEntrySheet.show(
+      context,
+      delivery: delivery,
+      codeType: 'distributor',
+      actionLabel: 'release',
+      onSubmit: (code) =>
+          repo.releaseReceiverPackage(delivery.id, verificationCode: code),
+    ).then((updated) {
+      if (updated != null) onSuccess();
+    });
+    return true;
   }
 
   Future<bool?> _showConfirm(String riderName) {
@@ -298,7 +321,6 @@ class _ReceiverPackageCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ─── Header ─────────────────────────────────────
           Row(
             children: [
               const Icon(
@@ -321,14 +343,12 @@ class _ReceiverPackageCard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.sm),
 
-          // ─── Destination ────────────────────────────────
           if (delivery.destinationAddress != null)
             _InfoRow(
               icon: Icons.place_outlined,
               value: delivery.destinationAddress!,
             ),
 
-          // ─── Recipient ──────────────────────────────────
           if (delivery.recipientName != null) ...[
             const SizedBox(height: AppSpacing.xxs),
             _InfoRow(
@@ -337,7 +357,6 @@ class _ReceiverPackageCard extends StatelessWidget {
             ),
           ],
 
-          // ─── Helper hint ────────────────────────────────
           if (helperText != null) ...[
             const SizedBox(height: AppSpacing.sm),
             Container(
@@ -367,7 +386,6 @@ class _ReceiverPackageCard extends StatelessWidget {
             ),
           ],
 
-          // ─── Primary CTA ────────────────────────────────
           if (canRelease) ...[
             const SizedBox(height: AppSpacing.md),
             _ReleaseButton(isBusy: isBusy, onPressed: onRelease),

@@ -96,7 +96,7 @@ void main() {
       expect(result, isA<ApiSuccess<Payment>>());
       expect(result.dataOrNull!.status, PaymentStatus.pending);
       expect(result.dataOrNull!.amount, 2000.0);
-      expect(adapter.lastRequest!.path, '/payments/initiate');
+      expect(adapter.lastRequest!.path, '/distributor/payments/initiate');
       expect(adapter.lastRequest!.method, 'POST');
 
       final sent = adapter.lastRequest!.data as Map<String, dynamic>;

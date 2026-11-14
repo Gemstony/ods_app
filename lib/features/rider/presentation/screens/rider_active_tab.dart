@@ -1,28 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/network/api_result.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../data/models/delivery.dart';
 import '../../../../shared/providers/repository_providers.dart';
 import '../../../../widgets/widgets.dart';
+import '../../../shared/presentation/widgets/verification_code_entry_sheet.dart';
 import '../providers/rider_active_providers.dart';
 import '../providers/rider_dashboard_providers.dart';
 import '../providers/rider_tasks_providers.dart';
 
-/// The Rider's Active tab — deliveries currently in-hand.
-///
-/// Two lifecycle states are shown:
-///   - `accepted`  → CTA "Pickup package"   (pickup from branch)
-///   - `picked_up` → CTA "Confirm delivery" (handover to recipient)
-///
-/// Both actions follow the same flow: confirm dialog → per-tile spinner
-/// → API call → refresh + snackbar. After pickup, the card updates to
-/// "picked_up" in place; after deliver, it drops out of the list.
-///
-/// Deliver has no verification code yet — Phase 12 adds code entry
-/// (DISTRIBUTOR_CODE / RECIPIENT_CODE). The backend's `deliver` endpoint
-/// (Phase 8.1) is currently a plain status transition.
 class RiderActiveTab extends ConsumerStatefulWidget {
   const RiderActiveTab({super.key});
 
@@ -31,8 +20,6 @@ class RiderActiveTab extends ConsumerStatefulWidget {
 }
 
 class _RiderActiveTabState extends ConsumerState<RiderActiveTab> {
-  /// Delivery IDs with an in-flight pickup/deliver request — renders
-  /// a spinner on those tiles only, keeping the rest interactive.
   final Set<int> _busyIds = <int>{};
 
   @override
@@ -57,9 +44,7 @@ class _RiderActiveTabState extends ConsumerState<RiderActiveTab> {
         ref.invalidate(riderTasksProvider);
         await ref.read(riderTasksProvider.future);
       },
-      child: active.isEmpty
-          ? _buildEmptyScrollable()
-          : _buildList(active),
+      child: active.isEmpty ? _buildEmptyScrollable() : _buildList(active),
     );
   }
 
@@ -94,7 +79,6 @@ class _RiderActiveTabState extends ConsumerState<RiderActiveTab> {
     );
   }
 
-  // ─── Pickup flow ────────────────────────────────────────
   Future<void> _onPickupTap(Delivery delivery) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -128,27 +112,32 @@ class _RiderActiveTabState extends ConsumerState<RiderActiveTab> {
     if (!mounted) return;
     setState(() => _busyIds.remove(delivery.id));
 
+    if (_handleIfVerificationRequired(
+      result: result,
+      delivery: delivery,
+      codeType: 'distributor',
+      actionLabel: 'pickup',
+      submitWithCode: (code) =>
+          repo.pickupRiderDelivery(delivery.id, verificationCode: code),
+      onSuccess: _handlePickupSuccess,
+    )) {
+      return;
+    }
+
     result.fold(
-      onSuccess: (_) {
-        ref.invalidate(riderTasksProvider);
-        ref.invalidate(riderHomeProvider);
-        ScaffoldMessenger.of(context)
-          ..clearSnackBars()
-          ..showSnackBar(const SnackBar(
-            content: Text(
-              'Package picked up. Confirm delivery when you hand it over.',
-            ),
-          ));
-      },
-      onFailure: (failure) {
-        ScaffoldMessenger.of(context)
-          ..clearSnackBars()
-          ..showSnackBar(SnackBar(content: Text(failure.message)));
-      },
+      onSuccess: (_) => _handlePickupSuccess(),
+      onFailure: (f) => _showSnackbar(f.message),
     );
   }
 
-  // ─── Deliver flow ───────────────────────────────────────
+  void _handlePickupSuccess() {
+    ref.invalidate(riderTasksProvider);
+    ref.invalidate(riderHomeProvider);
+    _showSnackbar(
+      'Package picked up. Confirm delivery when you hand it over.',
+    );
+  }
+
   Future<void> _onDeliverTap(Delivery delivery) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -181,27 +170,73 @@ class _RiderActiveTabState extends ConsumerState<RiderActiveTab> {
     if (!mounted) return;
     setState(() => _busyIds.remove(delivery.id));
 
+    if (_handleIfVerificationRequired(
+      result: result,
+      delivery: delivery,
+      codeType: 'recipient',
+      actionLabel: 'deliver',
+      submitWithCode: (code) =>
+          repo.deliverRiderDelivery(delivery.id, verificationCode: code),
+      onSuccess: _handleDeliverSuccess,
+    )) {
+      return;
+    }
+
     result.fold(
-      onSuccess: (_) {
-        ref.invalidate(riderTasksProvider);
-        ref.invalidate(riderHomeProvider);
-        ScaffoldMessenger.of(context)
-          ..clearSnackBars()
-          ..showSnackBar(const SnackBar(
-            content: Text('Delivery completed. Nice work!'),
-          ));
-      },
+      onSuccess: (_) => _handleDeliverSuccess(),
+      onFailure: (f) => _showSnackbar(f.message),
+    );
+  }
+
+  void _handleDeliverSuccess() {
+    ref.invalidate(riderTasksProvider);
+    ref.invalidate(riderHomeProvider);
+    _showSnackbar('Delivery completed. Nice work!');
+  }
+
+   bool _handleIfVerificationRequired({
+    required ApiResult<Delivery> result,
+    required Delivery delivery,
+    required String codeType,
+    required String actionLabel,
+    required Future<ApiResult<Delivery>> Function(String code) submitWithCode,
+    required VoidCallback onSuccess,
+  }) {
+    bool verificationRequired = false;
+
+    result.fold(
+      onSuccess: (_) {},
       onFailure: (failure) {
-        ScaffoldMessenger.of(context)
-          ..clearSnackBars()
-          ..showSnackBar(SnackBar(content: Text(failure.message)));
+        verificationRequired = failure.message
+            .toLowerCase()
+            .contains('verification code is required');
       },
     );
+
+    if (!verificationRequired) return false;
+
+    VerificationCodeEntrySheet.show(
+      context,
+      delivery: delivery,
+      codeType: codeType,
+      actionLabel: actionLabel,
+      onSubmit: submitWithCode,
+    ).then((updated) {
+      if (updated != null) onSuccess();
+    });
+    return true;
+  }
+
+  void _showSnackbar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
 // ─────────────────────────────────────────────────────────────
-// Active delivery card — focus-mode layout
+// Active delivery card
 // ─────────────────────────────────────────────────────────────
 
 class _ActiveDeliveryCard extends StatelessWidget {
@@ -231,7 +266,6 @@ class _ActiveDeliveryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ─── Header: tracking + status ─────────────────
           Row(
             children: [
               const Icon(
@@ -254,7 +288,6 @@ class _ActiveDeliveryCard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.sm),
 
-          // ─── Addresses ─────────────────────────────────
           if (delivery.pickupAddress != null)
             _AddressRow(
               icon: Icons.warehouse_outlined,
@@ -271,7 +304,6 @@ class _ActiveDeliveryCard extends StatelessWidget {
             ),
           ],
 
-          // ─── Recipient ─────────────────────────────────
           if (delivery.recipientName != null ||
               delivery.recipientPhone != null) ...[
             const SizedBox(height: AppSpacing.sm),
@@ -317,7 +349,6 @@ class _ActiveDeliveryCard extends StatelessWidget {
 
           const SizedBox(height: AppSpacing.md),
 
-          // ─── Primary CTA ───────────────────────────────
           _PrimaryCta(
             status: delivery.status,
             isBusy: isBusy,
@@ -332,8 +363,12 @@ class _ActiveDeliveryCard extends StatelessWidget {
   String? _destinationLabel() {
     if (delivery.isRegional) {
       final parts = <String>[];
-      if (delivery.destinationRegion != null) parts.add(delivery.destinationRegion!);
-      if (delivery.destinationDistrict != null) parts.add(delivery.destinationDistrict!);
+      if (delivery.destinationRegion != null) {
+        parts.add(delivery.destinationRegion!);
+      }
+      if (delivery.destinationDistrict != null) {
+        parts.add(delivery.destinationDistrict!);
+      }
       if (parts.isNotEmpty) return parts.join(' · ');
       return 'Regional destination';
     }

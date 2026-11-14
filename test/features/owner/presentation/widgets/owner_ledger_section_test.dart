@@ -99,8 +99,8 @@ void main() {
     expect(find.text('Ledger'), findsOneWidget);
     expect(find.text('Payments'), findsOneWidget);
     expect(find.text('Earnings'), findsOneWidget);
-    expect(find.text('Payouts'), findsOneWidget);
-    expect(find.text('Reconciliation'), findsOneWidget);
+    expect(find.text('Payout batches'), findsOneWidget);
+    expect(find.text('Payment reconciliation'), findsOneWidget);
     expect(find.text('Run reconciliation'), findsOneWidget);
   });
 

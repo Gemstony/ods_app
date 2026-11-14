@@ -6,17 +6,16 @@ import '../../core/network/api_result.dart';
 import '../models/delivery.dart';
 import '../models/delivery_input.dart';
 import '../models/package_verify_result.dart';
+import '../models/verification_issue_result.dart';
 
-/// Talks to every `/api/v1/{distributor,manager,rider,receiver}/*` delivery
-/// endpoint.
 class DeliveryRepository {
   final Dio _dio;
 
   DeliveryRepository({Dio? dio}) : _dio = dio ?? ApiClient.instance.dio;
 
-  // ────────────────────────────────────────────────────────
-  // Distributor-facing (Phase 7)
-  // ────────────────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════════
+  // Distributor (Phase 7)
+  // ════════════════════════════════════════════════════════════
 
   Future<ApiResult<List<Delivery>>> listMine({
     DeliveryStatus? status,
@@ -71,9 +70,25 @@ class DeliveryRepository {
     });
   }
 
-  // ────────────────────────────────────────────────────────
-  // Manager-facing (Phase 6)
-  // ────────────────────────────────────────────────────────
+  /// POST /distributor/deliveries/{id}/verification/issue
+  ///
+  /// Phase 12.3 — Distributor generates the DISTRIBUTOR_CODE and
+  /// RECIPIENT_CODE for a delivery. Both raw values are returned here
+  /// **once** and never again.
+  Future<ApiResult<VerificationIssueResult>> issueVerificationCodes(
+    int deliveryId,
+  ) {
+    return ApiResult.guard(() async {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '${ApiEndpoints.distributorDeliveries}/$deliveryId/verification/issue',
+      );
+      return VerificationIssueResult.fromJson(_extractData(response));
+    });
+  }
+
+  // ════════════════════════════════════════════════════════════
+  // Manager (Phase 6)
+  // ════════════════════════════════════════════════════════════
 
   Future<ApiResult<List<Delivery>>> listForBranch({
     List<DeliveryStatus>? statuses,
@@ -112,15 +127,14 @@ class DeliveryRepository {
       final response = await _dio.get<Map<String, dynamic>>(
         '/manager/packages',
       );
-
       final data = _extractData(response);
       return _extractList(data, Delivery.fromJson);
     });
   }
 
-  // ────────────────────────────────────────────────────────
-  // Rider-facing (Phase 8)
-  // ────────────────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════════
+  // Rider (Phase 8, modified Phase 12.3)
+  // ════════════════════════════════════════════════════════════
 
   Future<ApiResult<List<Delivery>>> listForRider({
     List<DeliveryStatus>? statuses,
@@ -161,27 +175,49 @@ class DeliveryRepository {
     });
   }
 
-  Future<ApiResult<Delivery>> pickupRiderDelivery(int id) {
+  /// POST /rider/deliveries/{id}/pickup
+  ///
+  /// Phase 12.3: optional `verificationCode` — when the backend gate is
+  /// armed, omitting it returns 422 with a `no_code_provided` message
+  /// that triggers the app's code-entry sheet.
+  Future<ApiResult<Delivery>> pickupRiderDelivery(
+    int id, {
+    String? verificationCode,
+  }) {
     return ApiResult.guard(() async {
       final response = await _dio.post<Map<String, dynamic>>(
         '${ApiEndpoints.riderDeliveries}/$id/pickup',
+        data: {
+          if (verificationCode != null && verificationCode.isNotEmpty)
+            'verification_code': verificationCode,
+        },
       );
       return Delivery.fromJson(_extractData(response));
     });
   }
 
-  Future<ApiResult<Delivery>> deliverRiderDelivery(int id) {
+  /// POST /rider/deliveries/{id}/deliver
+  ///
+  /// Phase 12.3: optional `verificationCode` (RECIPIENT_CODE).
+  Future<ApiResult<Delivery>> deliverRiderDelivery(
+    int id, {
+    String? verificationCode,
+  }) {
     return ApiResult.guard(() async {
       final response = await _dio.post<Map<String, dynamic>>(
         '${ApiEndpoints.riderDeliveries}/$id/deliver',
+        data: {
+          if (verificationCode != null && verificationCode.isNotEmpty)
+            'verification_code': verificationCode,
+        },
       );
       return Delivery.fromJson(_extractData(response));
     });
   }
 
-  // ────────────────────────────────────────────────────────
-  // Receiver-facing (Phase 9)
-  // ────────────────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════════
+  // Receiver (Phase 9, modified Phase 12.3)
+  // ════════════════════════════════════════════════════════════
 
   Future<ApiResult<List<Delivery>>> listReceiverPackages({
     List<DeliveryStatus>? statuses,
@@ -211,18 +247,24 @@ class DeliveryRepository {
     });
   }
 
-  Future<ApiResult<Delivery>> releaseReceiverPackage(int id) {
+  /// POST /receiver/packages/{id}/release
+  ///
+  /// Phase 12.3: optional `verificationCode` (DISTRIBUTOR_CODE).
+  Future<ApiResult<Delivery>> releaseReceiverPackage(
+    int id, {
+    String? verificationCode,
+  }) {
     return ApiResult.guard(() async {
       final response = await _dio.post<Map<String, dynamic>>(
         '${ApiEndpoints.receiverPackages}/$id/release',
+        data: {
+          if (verificationCode != null && verificationCode.isNotEmpty)
+            'verification_code': verificationCode,
+        },
       );
       return Delivery.fromJson(_extractData(response));
     });
   }
-
-  // ────────────────────────────────────────────────────────
-  // Receiver — Regional dispatch (Phase 9.1/9.3/9.5)
-  // ────────────────────────────────────────────────────────
 
   Future<ApiResult<List<Delivery>>> listReceiverRegional({
     List<DeliveryStatus>? statuses,
@@ -279,12 +321,6 @@ class DeliveryRepository {
     });
   }
 
-  /// POST /receiver/regional/{id}/confirm-arrival
-  ///
-  /// Transitions `dispatched → delivered`. Called by the ORIGIN receiver
-  /// after the recipient or the bus/cargo provider has acknowledged
-  /// receipt (typically via phone call). No code verification yet —
-  /// Phase 12 adds that on top of the same endpoint.
   Future<ApiResult<Delivery>> confirmRegionalArrival(int id) {
     return ApiResult.guard(() async {
       final response = await _dio.post<Map<String, dynamic>>(
@@ -294,7 +330,7 @@ class DeliveryRepository {
     });
   }
 
-  // ─── Envelope helpers ────────────────────────────────────
+  // ─── Envelope helpers ─────────────────────────────────────
   Map<String, dynamic> _extractData(Response<Map<String, dynamic>> response) {
     final body = response.data;
     if (body == null) throw StateError('Empty response body');

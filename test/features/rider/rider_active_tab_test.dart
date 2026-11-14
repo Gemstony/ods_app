@@ -78,25 +78,32 @@ class _FakeDeliveryRepo extends DeliveryRepository {
     );
   }
 
-  @override
-  Future<ApiResult<Delivery>> pickupRiderDelivery(int id) async {
-    pickupCallCount++;
-    lastPickupId = id;
-    if (pickupResult == null) {
-      throw StateError('pickupResult not stubbed');
-    }
-    return pickupResult!;
+@override
+Future<ApiResult<Delivery>> pickupRiderDelivery(
+  int id, {
+  String? verificationCode,
+}) async {
+  pickupCallCount++;
+  lastPickupId = id;
+  if (pickupResult == null) {
+    throw StateError('pickupResult not stubbed');
   }
+  return pickupResult!;
+}
 
-  @override
-  Future<ApiResult<Delivery>> deliverRiderDelivery(int id) async {
-    deliverCallCount++;
-    lastDeliverId = id;
-    if (deliverResult == null) {
-      throw StateError('deliverResult not stubbed');
-    }
-    return deliverResult!;
+
+@override
+Future<ApiResult<Delivery>> deliverRiderDelivery(
+  int id, {
+  String? verificationCode,
+}) async {
+  deliverCallCount++;
+  lastDeliverId = id;
+  if (deliverResult == null) {
+    throw StateError('deliverResult not stubbed');
   }
+  return deliverResult!;
+}
 }
 
 Widget _wrap({required DeliveryRepository repo}) {
