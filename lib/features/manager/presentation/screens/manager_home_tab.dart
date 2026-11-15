@@ -6,6 +6,8 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../data/models/manager_dashboard_kpis.dart';
 import '../../../../widgets/widgets.dart';
 import '../providers/manager_dashboard_providers.dart';
+import '../providers/manual_payments_provider.dart';
+import 'manual_payments_screen.dart';
 
 /// The Manager's Home tab — operational command center for their branch.
 ///
@@ -13,6 +15,7 @@ import '../providers/manager_dashboard_providers.dart';
 ///   - Branch header (name, code, status chip)
 ///   - "Inactive branch" warning if applicable
 ///   - 4 KPI tiles: waiting pickup / in transit / today / delivered today
+///   - Pending manual payments (only when > 0) — Phase 13.7.1
 ///   - Revenue today
 ///   - Team breakdown
 ///
@@ -154,6 +157,10 @@ class _DashboardContent extends StatelessWidget {
 
         const SizedBox(height: AppSpacing.xl),
 
+        // ─── Pending manual payments (Phase 13.7.1) ─────────
+        // Renders only when > 0. When hidden, occupies zero space.
+        const _PendingManualPaymentsCard(),
+
         // ─── Revenue today ──────────────────────────────────
         _SectionHeader(
           title: 'Revenue today',
@@ -218,6 +225,99 @@ class _DashboardContent extends StatelessWidget {
 
         const SizedBox(height: AppSpacing.xl),
       ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Pending manual payments card (Phase 13.7.1)
+// ─────────────────────────────────────────────────────────────
+
+/// Renders only when there are pending manual payments for the branch.
+/// Returns `SizedBox.shrink()` otherwise so the Home tab stays
+/// uncluttered during normal operation.
+///
+/// Owns its own spacing: the parent `_DashboardContent` doesn't need a
+/// trailing `SizedBox` — the padding inside the card's `Padding` wrapper
+/// provides the correct section gap when the card is visible, and nothing
+/// when hidden.
+class _PendingManualPaymentsCard extends ConsumerWidget {
+  const _PendingManualPaymentsCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(managerPendingManualPaymentsProvider);
+
+    // Silent-hide on load or error — the card is an enhancement, not a
+    // required surface. A broken network on this provider must not block
+    // the rest of the Home tab.
+    final count = async.maybeWhen(
+      data: (list) => list.length,
+      orElse: () => 0,
+    );
+
+    if (count == 0) return const SizedBox.shrink();
+
+    final text = Theme.of(context).textTheme;
+
+    return Padding(
+      // Bottom spacing matches the standard section gap the card replaces.
+      padding: const EdgeInsets.only(bottom: AppSpacing.xl),
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppColors.warningSurface,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+          border: Border.all(
+            color: AppColors.warning.withValues(alpha: 0.4),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.pending_actions_rounded,
+                  color: AppColors.warning,
+                  size: 20,
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Expanded(
+                  child: Text(
+                    'Pending manual payments',
+                    style: text.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              '$count ${count == 1 ? "cash payment is" : "cash payments are"} '
+              'waiting for your approval.',
+              style: text.bodySmall?.copyWith(
+                color: AppColors.onSurfaceMuted,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            ElevatedButton.icon(
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => const ManualPaymentsScreen(forOwner: false),
+              )),
+              icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+              label: Text(
+                'Review $count ${count == 1 ? "payment" : "payments"}',
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.warning,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

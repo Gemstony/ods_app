@@ -5,27 +5,11 @@ import '../../core/network/api_endpoints.dart';
 import '../../core/network/api_result.dart';
 import '../models/payment.dart';
 
-/// Talks to `/api/v1/distributor/payments/*` (Phase 11.2 backend).
-///
-/// Flow:
-///   1. `POST initiate` → backend creates Payment row, calls ClickPesa
-///      to push a USSD prompt to the given phone.
-///   2. `POST refresh` polls the current state — the backend queries
-///      ClickPesa and applies any state transition.
-///   3. When terminal (completed / failed), caller stops polling.
-///
-/// `GET show` is a lightweight read (no provider call) — useful for
-/// rendering known state without touching ClickPesa.
 class PaymentRepository {
   final Dio _dio;
 
   PaymentRepository({Dio? dio}) : _dio = dio ?? ApiClient.instance.dio;
 
-  /// POST /distributor/payments/initiate
-  ///
-  /// Client must NOT send an amount — the backend computes it from the
-  /// delivery + PricingConfig. `phoneNumber` is optional; when absent the
-  /// backend uses the authenticated distributor's account phone.
   Future<ApiResult<Payment>> initiate({
     required int deliveryId,
     String? phoneNumber,
@@ -45,9 +29,30 @@ class PaymentRepository {
     });
   }
 
-  /// GET /distributor/payments/{id}
+  /// POST /distributor/payments/manual
   ///
-  /// Read-only — never touches ClickPesa. Use for display.
+  /// Records a manual payment (cash / manual). Delivery stays
+  /// `pending_payment` until a Manager approves.
+  Future<ApiResult<Payment>> manual({
+    required int deliveryId,
+    required String method, // 'cash' | 'manual'
+    PaymentStage stage = PaymentStage.full,
+    String? notes,
+  }) {
+    return ApiResult.guard(() async {
+      final response = await _dio.post<Map<String, dynamic>>(
+        ApiEndpoints.distributorPaymentsManual,
+        data: {
+          'delivery_id': deliveryId,
+          'method': method,
+          'stage': stage.name,
+          if (notes != null && notes.isNotEmpty) 'notes': notes,
+        },
+      );
+      return Payment.fromJson(_extractData(response));
+    });
+  }
+
   Future<ApiResult<Payment>> show(int paymentId) {
     return ApiResult.guard(() async {
       final response = await _dio.get<Map<String, dynamic>>(
@@ -57,10 +62,6 @@ class PaymentRepository {
     });
   }
 
-  /// POST /distributor/payments/{id}/refresh
-  ///
-  /// Asks the backend to query ClickPesa and apply the current state.
-  /// Safe to call repeatedly — the backend is idempotent per payment.
   Future<ApiResult<Payment>> refresh(int paymentId) {
     return ApiResult.guard(() async {
       final response = await _dio.post<Map<String, dynamic>>(

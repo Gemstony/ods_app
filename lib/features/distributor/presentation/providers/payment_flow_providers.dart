@@ -24,6 +24,13 @@ class PaymentFlowInFlight extends PaymentFlowState {
   const PaymentFlowInFlight(this.payment);
 }
 
+/// Phase 13.7 — Manual payment recorded, awaiting Manager approval.
+/// No polling — the user checks status manually or on next app open.
+class PaymentFlowAwaitingApproval extends PaymentFlowState {
+  final Payment payment;
+  const PaymentFlowAwaitingApproval(this.payment);
+}
+
 class PaymentFlowSuccess extends PaymentFlowState {
   final Payment payment;
   const PaymentFlowSuccess(this.payment);
@@ -39,14 +46,7 @@ class PaymentFlowError extends PaymentFlowState {
   const PaymentFlowError(this.message);
 }
 
-/// Owns one payment flow for a single delivery (Phase 11.5).
-///
-/// Lifecycle:
-///   - Created lazily when the modal opens (`autoDispose.family`).
-///   - `initiate()` starts a flow — sets busy, calls backend, transitions
-///     to InFlight, starts polling.
-///   - Polling stops on terminal status or manual reset.
-///   - `dispose()` cancels polling so a closed modal never leaks timers.
+/// Owns one payment flow for a single delivery (Phase 11.5 / 13.7).
 class PaymentFlowNotifier extends StateNotifier<PaymentFlowState> {
   PaymentFlowNotifier({
     required this.ref,
@@ -91,6 +91,36 @@ class PaymentFlowNotifier extends StateNotifier<PaymentFlowState> {
     );
   }
 
+  /// Phase 13.7 — Manual payment. No polling after this call.
+  Future<void> initiateManual({
+    required String method, // 'cash' | 'manual'
+    PaymentStage stage = PaymentStage.full,
+    String? notes,
+  }) async {
+    _cancelTimers();
+    state = const PaymentFlowBusy('Recording manual payment…');
+
+    final repo = ref.read(paymentRepositoryProvider);
+    final result = await repo.manual(
+      deliveryId: deliveryId,
+      method: method,
+      stage: stage,
+      notes: notes,
+    );
+
+    if (_disposed) return;
+
+    result.fold(
+      onSuccess: (payment) {
+        _activePaymentId = payment.id;
+        // Manual payments are always `pending` at this point — go
+        // straight to the awaiting-approval state without polling.
+        state = PaymentFlowAwaitingApproval(payment);
+      },
+      onFailure: (f) => state = PaymentFlowError(f.message),
+    );
+  }
+
   Future<void> refreshNow() async {
     final id = _activePaymentId ?? _currentPaymentId();
     if (id == null) return;
@@ -129,6 +159,15 @@ class PaymentFlowNotifier extends StateNotifier<PaymentFlowState> {
           : PaymentFlowFailed(payment);
       return;
     }
+
+    // Manual payments never poll — the Manager controls the transition.
+    if (payment.method == PaymentMethod.cash ||
+        payment.method == PaymentMethod.manual) {
+      _cancelTimers();
+      state = PaymentFlowAwaitingApproval(payment);
+      return;
+    }
+
     state = PaymentFlowInFlight(payment);
     _startPolling();
   }
@@ -146,15 +185,8 @@ class PaymentFlowNotifier extends StateNotifier<PaymentFlowState> {
       if (_disposed) return;
 
       result.fold(
-        onSuccess: (payment) {
-          // Enter-state cancels timers when terminal, so a completion
-          // mid-poll stops everything cleanly.
-          _enterState(payment);
-        },
-        onFailure: (_) {
-          // Transient poll failure — keep polling. The user can also
-          // tap "Refresh status" if they're impatient.
-        },
+        onSuccess: (payment) => _enterState(payment),
+        onFailure: (_) {},
       );
     });
 
@@ -163,7 +195,6 @@ class PaymentFlowNotifier extends StateNotifier<PaymentFlowState> {
       if (_disposed) return;
       _pollTimer?.cancel();
       _pollTimer = null;
-      // Keep _activePaymentId so user can still manually refresh.
       state = const PaymentFlowError(
         'Taking longer than expected. Check your phone, or tap Refresh status.',
       );
@@ -180,6 +211,7 @@ class PaymentFlowNotifier extends StateNotifier<PaymentFlowState> {
   int? _currentPaymentId() {
     return switch (state) {
       PaymentFlowInFlight(:final payment) => payment.id,
+      PaymentFlowAwaitingApproval(:final payment) => payment.id,
       PaymentFlowSuccess(:final payment) => payment.id,
       PaymentFlowFailed(:final payment) => payment.id,
       _ => null,

@@ -3,16 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../manager/presentation/providers/manual_payments_provider.dart';
+import '../../../manager/presentation/screens/manual_payments_screen.dart';
 import '../providers/owner_ledger_providers.dart';
 import '../screens/owner_earnings_screen.dart';
 import '../screens/owner_payments_screen.dart';
 import '../screens/owner_payouts_screen.dart';
 import '../screens/owner_reconciliation_screen.dart';
 
-/// Ledger hub shown at the bottom of the Owner Finance tab.
-///
-/// Three tap cards → dedicated list screens. One reconciliation status
-/// tile → opens the reconciliation screen where the Owner can run it.
 class OwnerLedgerSection extends ConsumerWidget {
   const OwnerLedgerSection({super.key});
 
@@ -58,6 +56,18 @@ class OwnerLedgerSection extends ConsumerWidget {
             builder: (_) => const OwnerPayoutsScreen(),
           )),
         ),
+        const SizedBox(height: AppSpacing.sm),
+        // Phase 13.7 — Manual payment approvals (Owner fallback)
+        _LedgerTapCard(
+          icon: Icons.pending_actions_rounded,
+          color: AppColors.warning,
+          title: 'Manual approvals',
+          subtitle: 'Cash / off-app payments',
+          provider: ownerPendingManualPaymentsProvider,
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => const ManualPaymentsScreen(forOwner: true),
+          )),
+        ),
         const SizedBox(height: AppSpacing.lg),
         const _SectionHeader(
           icon: Icons.sync_rounded,
@@ -74,6 +84,8 @@ class OwnerLedgerSection extends ConsumerWidget {
   }
 }
 
+// ─── Unchanged from 11.6 ────────────────────────────────────
+
 class _SectionHeader extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -88,9 +100,7 @@ class _SectionHeader extends StatelessWidget {
         const SizedBox(width: AppSpacing.xs),
         Text(
           title,
-          style: text.titleSmall?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
+          style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
         ),
       ],
     );

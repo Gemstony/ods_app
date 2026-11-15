@@ -12,8 +12,10 @@ import '../providers/payment_flow_providers.dart';
 
 /// Modal bottom sheet driving one payment attempt.
 ///
-/// Returns `true` when the payment completes successfully (parent should
-/// refresh the delivery + list). Returns `null` on manual dismissal.
+/// Returns `true` when the payment completes successfully (parent
+/// should refresh). Returns `null` on manual dismissal OR when a manual
+/// payment was recorded — delivery stays `pending_payment` until the
+/// Manager approves.
 class PaymentFlowSheet extends ConsumerStatefulWidget {
   final Delivery delivery;
 
@@ -62,7 +64,6 @@ class _PaymentFlowSheetState extends ConsumerState<PaymentFlowSheet> {
   Widget build(BuildContext context) {
     final state = ref.watch(paymentFlowProvider(widget.delivery.id));
 
-    // Auto-close on success after a short delay so the user sees it.
     ref.listen<PaymentFlowState>(
       paymentFlowProvider(widget.delivery.id),
       (prev, next) {
@@ -129,13 +130,15 @@ class _PaymentFlowSheetState extends ConsumerState<PaymentFlowSheet> {
       PaymentFlowIdle() => _buildIdle(),
       PaymentFlowBusy(:final message) => _buildBusy(message),
       PaymentFlowInFlight(:final payment) => _buildInFlight(payment),
+      PaymentFlowAwaitingApproval(:final payment) =>
+        _buildAwaitingApproval(payment),
       PaymentFlowSuccess(:final payment) => _buildSuccess(payment),
       PaymentFlowFailed(:final payment) => _buildFailed(payment),
       PaymentFlowError(:final message) => _buildError(message),
     };
   }
 
-  // ─── Idle: phone entry + amount ──────────────────────────
+  // ─── Idle ────────────────────────────────────────────────
   Widget _buildIdle() {
     final amountLabel = widget.delivery.totalAmountLabel;
     final text = Theme.of(context).textTheme;
@@ -197,6 +200,24 @@ class _PaymentFlowSheetState extends ConsumerState<PaymentFlowSheet> {
           icon: Icons.sms_rounded,
           onPressed: _onSubmit,
         ),
+        const SizedBox(height: AppSpacing.sm),
+        Center(
+          child: Text(
+            '— or —',
+            style: text.bodySmall?.copyWith(color: AppColors.onSurfaceMuted),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        OutlinedButton.icon(
+          onPressed: _onManualTap,
+          icon: const Icon(Icons.storefront_rounded, size: 18),
+          label: const Text('Pay at branch (cash)'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.primary,
+            side: BorderSide(color: AppColors.primary.withValues(alpha: 0.4)),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+          ),
+        ),
         const SizedBox(height: AppSpacing.xs),
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
@@ -221,7 +242,22 @@ class _PaymentFlowSheetState extends ConsumerState<PaymentFlowSheet> {
         .initiate(phoneNumber: phone);
   }
 
-  // ─── Busy: sending ───────────────────────────────────────
+  Future<void> _onManualTap() async {
+    final result = await showDialog<_ManualConfirmResult>(
+      context: context,
+      builder: (_) => _ManualConfirmDialog(
+        amountLabel: widget.delivery.totalAmountLabel,
+      ),
+    );
+    if (result == null || !mounted) return;
+
+    ref.read(paymentFlowProvider(widget.delivery.id).notifier).initiateManual(
+          method: result.method,
+          notes: result.notes,
+        );
+  }
+
+  // ─── Busy ────────────────────────────────────────────────
   Widget _buildBusy(String message) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
@@ -235,7 +271,7 @@ class _PaymentFlowSheetState extends ConsumerState<PaymentFlowSheet> {
     );
   }
 
-  // ─── In-flight: waiting for USSD PIN ─────────────────────
+  // ─── In-flight (ClickPesa) ───────────────────────────────
   Widget _buildInFlight(Payment payment) {
     final text = Theme.of(context).textTheme;
     return Column(
@@ -318,6 +354,72 @@ class _PaymentFlowSheetState extends ConsumerState<PaymentFlowSheet> {
     );
   }
 
+  // ─── Awaiting approval (manual) ──────────────────────────
+  Widget _buildAwaitingApproval(Payment payment) {
+    final text = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            color: AppColors.warningSurface,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+            border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
+          ),
+          child: Column(
+            children: [
+              const Icon(Icons.hourglass_top_rounded,
+                  size: 48, color: AppColors.warning),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                'Awaiting approval',
+                style: text.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                'Your ${payment.methodLabel.toLowerCase()} payment of '
+                '${payment.amountLabel} has been recorded. '
+                'The branch manager needs to approve it before the '
+                'delivery can proceed.',
+                style: text.bodySmall?.copyWith(
+                  color: AppColors.onSurfaceMuted,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          'Reference: ${payment.reference}',
+          textAlign: TextAlign.center,
+          style: text.bodySmall?.copyWith(
+            color: AppColors.onSurfaceSubtle,
+            fontFamily: 'monospace',
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        AppButton(
+          label: 'Check status',
+          icon: Icons.refresh_rounded,
+          onPressed: () => ref
+              .read(paymentFlowProvider(widget.delivery.id).notifier)
+              .refreshNow(),
+          variant: AppButtonVariant.secondary,
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Close'),
+        ),
+      ],
+    );
+  }
+
   // ─── Success ─────────────────────────────────────────────
   Widget _buildSuccess(Payment payment) {
     final text = Theme.of(context).textTheme;
@@ -328,9 +430,7 @@ class _PaymentFlowSheetState extends ConsumerState<PaymentFlowSheet> {
         const SizedBox(height: AppSpacing.md),
         Text(
           'Payment received',
-          style: text.titleLarge?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
+          style: text.titleLarge?.copyWith(fontWeight: FontWeight.w700),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: AppSpacing.xs),
@@ -384,7 +484,7 @@ class _PaymentFlowSheetState extends ConsumerState<PaymentFlowSheet> {
     );
   }
 
-  // ─── Error (network / timeout) ───────────────────────────
+  // ─── Error ───────────────────────────────────────────────
   Widget _buildError(String message) {
     final text = Theme.of(context).textTheme;
     return Column(
@@ -410,6 +510,107 @@ class _PaymentFlowSheetState extends ConsumerState<PaymentFlowSheet> {
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Close'),
+        ),
+      ],
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Manual confirm dialog
+// ═══════════════════════════════════════════════════════════════
+
+class _ManualConfirmResult {
+  final String method;
+  final String? notes;
+  const _ManualConfirmResult({required this.method, this.notes});
+}
+
+class _ManualConfirmDialog extends StatefulWidget {
+  final String amountLabel;
+  const _ManualConfirmDialog({required this.amountLabel});
+
+  @override
+  State<_ManualConfirmDialog> createState() => _ManualConfirmDialogState();
+}
+
+class _ManualConfirmDialogState extends State<_ManualConfirmDialog> {
+  String _method = 'cash';
+  final _notesController = TextEditingController();
+
+  @override
+  void dispose() {
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return AlertDialog(
+      title: const Text('Pay at branch?'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Record a manual payment of ${widget.amountLabel} for this '
+              'delivery. The branch manager will approve it once they '
+              'confirm receipt.',
+              style: text.bodySmall,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'Method',
+              style: text.bodySmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: AppColors.onSurfaceMuted,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Wrap(
+              spacing: 8,
+              children: [
+                ChoiceChip(
+                  label: const Text('Cash'),
+                  selected: _method == 'cash',
+                  onSelected: (_) => setState(() => _method = 'cash'),
+                ),
+                ChoiceChip(
+                  label: const Text('Manual / other'),
+                  selected: _method == 'manual',
+                  onSelected: (_) => setState(() => _method = 'manual'),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            TextField(
+              controller: _notesController,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                labelText: 'Notes (optional)',
+                hintText: 'e.g. paid at branch reception',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final notes = _notesController.text.trim();
+            Navigator.of(context).pop(_ManualConfirmResult(
+              method: _method,
+              notes: notes.isEmpty ? null : notes,
+            ));
+          },
+          child: const Text('Record'),
         ),
       ],
     );
