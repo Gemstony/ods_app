@@ -4,18 +4,21 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../data/models/delivery.dart';
 import '../../../../data/models/delivery_input.dart';
+import '../../../../data/models/branch.dart';
 import 'steps/order_details_step.dart';
+import 'steps/receive_branch_step.dart';
 import 'steps/send_recipient_step.dart';
 import 'steps/send_review_step.dart';
 import 'steps/wizard_location_step.dart';
 
-/// 4-step wizard for creating a Send delivery.
+/// 5-step wizard for creating a Send delivery.
 ///
 /// Steps:
 ///   0. Order details (EXGO or WhatsApp) — no contact phone
-///   1. Pickup location (distributor's current location)
-///   2. Recipient details (name + phone + destination address + GPS)
-///   3. Review + price preview + submit
+///   1. Choose pickup source (distributor location or branch)
+///   2. Pickup location / branch
+///   3. Recipient details (name + phone + destination address + GPS)
+///   4. Review + price preview + submit
 ///
 /// Ends with a `pending_payment` delivery ready for Phase 11's payment
 /// flow. Pops with the created `Delivery` on success.
@@ -27,12 +30,14 @@ class NewSendDeliveryWizard extends StatefulWidget {
 }
 
 class _NewSendDeliveryWizardState extends State<NewSendDeliveryWizard> {
-  static const _labels = ['Order', 'Pickup', 'Recipient', 'Review'];
+  static const _labels = ['Order', 'Pickup source', 'Pickup', 'Recipient', 'Review'];
 
   int _step = 0;
 
   List<DeliveryItemInput> _items = const [];
   String _pickupAddress = '';
+  Branch? _pickupBranch;
+  bool _useBranch = false;
   double _pickupLatitude = 0;
   double _pickupLongitude = 0;
   String _recipientName = '';
@@ -53,6 +58,16 @@ class _NewSendDeliveryWizardState extends State<NewSendDeliveryWizard> {
     });
   }
 
+  void _onBranchSelected(Branch branch) {
+    setState(() {
+      _pickupBranch = branch;
+      _pickupAddress = branch.address;
+      _pickupLatitude = branch.latitude;
+      _pickupLongitude = branch.longitude;
+      _step = 3;
+    });
+  }
+
   void _onPickupSubmitted({
     required String address,
     required double latitude,
@@ -62,7 +77,7 @@ class _NewSendDeliveryWizardState extends State<NewSendDeliveryWizard> {
       _pickupAddress = address;
       _pickupLatitude = latitude;
       _pickupLongitude = longitude;
-      _step = 2;
+      _step = 3;
     });
   }
 
@@ -79,7 +94,7 @@ class _NewSendDeliveryWizardState extends State<NewSendDeliveryWizard> {
       _destinationAddress = destinationAddress;
       _destinationLatitude = destinationLatitude;
       _destinationLongitude = destinationLongitude;
-      _step = 3;
+      _step = 4;
     });
   }
 
@@ -129,7 +144,20 @@ class _NewSendDeliveryWizardState extends State<NewSendDeliveryWizard> {
           onSubmitted: _onOrderDetailsSubmitted,
           onBack: _onBack,
         ),
-      1 => WizardLocationStep(
+      1 => _PickupSourceStep(
+          onBranch: () => setState(() { _useBranch = true; _step = 2; }),
+          onLocation: () {
+            setState(() {
+              _useBranch = false;
+              _pickupBranch = null;
+              _step = 2;
+            });
+          },
+          onBack: _onBack,
+        ),
+      2 => _useBranch
+          ? ReceiveBranchStep(onSelected: _onBranchSelected, onBack: _onBack)
+          : WizardLocationStep(
           title: 'Where are you dispatching from?',
           subtitle:
               'Enter your current location — this is where the rider '
@@ -137,12 +165,13 @@ class _NewSendDeliveryWizardState extends State<NewSendDeliveryWizard> {
           onSubmitted: _onPickupSubmitted,
           onBack: _onBack,
         ),
-      2 => SendRecipientStep(
+      3 => SendRecipientStep(
           onSubmitted: _onRecipientSubmitted,
           onBack: _onBack,
         ),
-      3 => SendReviewStep(
+      4 => SendReviewStep(
           items: _items,
+          pickupBranch: _pickupBranch,
           pickupAddress: _pickupAddress,
           pickupLatitude: _pickupLatitude,
           pickupLongitude: _pickupLongitude,
@@ -156,6 +185,31 @@ class _NewSendDeliveryWizardState extends State<NewSendDeliveryWizard> {
       _ => const SizedBox.shrink(),
     };
   }
+}
+
+class _PickupSourceStep extends StatelessWidget {
+  final VoidCallback onBranch;
+  final VoidCallback onLocation;
+  final VoidCallback onBack;
+  const _PickupSourceStep({required this.onBranch, required this.onLocation, required this.onBack});
+
+  @override
+  Widget build(BuildContext context) => Column(children: [
+    const Expanded(child: Center(child: Padding(
+      padding: EdgeInsets.all(24),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Text('Where is the package?', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+        SizedBox(height: 8),
+        Text('Choose the pickup point. A rider will collect the package from there.'),
+      ]),
+    ))),
+    Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      OutlinedButton.icon(onPressed: onLocation, icon: const Icon(Icons.my_location), label: const Text('My location')),
+      const SizedBox(height: 8),
+      ElevatedButton.icon(onPressed: onBranch, icon: const Icon(Icons.store), label: const Text('ODS branch')),
+      TextButton(onPressed: onBack, child: const Text('Back')),
+    ])),
+  ]);
 }
 
 class _WizardProgress extends StatelessWidget {

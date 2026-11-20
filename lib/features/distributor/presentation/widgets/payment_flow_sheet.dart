@@ -257,6 +257,27 @@ class _PaymentFlowSheetState extends ConsumerState<PaymentFlowSheet> {
         );
   }
 
+  Future<void> _onCheckStatusTap() async {
+    await ref
+        .read(paymentFlowProvider(widget.delivery.id).notifier)
+        .refreshNow();
+
+    if (!mounted) return;
+
+    // If the state transitioned to Success / Failed / Error, the sheet
+    // will already reflect that change (listener pops on success,
+    // _buildFailed / _buildError render inline). Only show the
+    // "still waiting" snackbar when the state hasn't moved.
+    final state = ref.read(paymentFlowProvider(widget.delivery.id));
+    if (state is PaymentFlowAwaitingApproval) {
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(const SnackBar(
+          content: Text('Still awaiting manager approval.'),
+        ));
+    }
+  }
+
   // ─── Busy ────────────────────────────────────────────────
   Widget _buildBusy(String message) {
     return Padding(
@@ -286,8 +307,7 @@ class _PaymentFlowSheetState extends ConsumerState<PaymentFlowSheet> {
           ),
           child: Column(
             children: [
-              const Icon(Icons.sms_rounded,
-                  size: 40, color: AppColors.info),
+              const Icon(Icons.sms_rounded, size: 40, color: AppColors.info),
               const SizedBox(height: AppSpacing.sm),
               Text(
                 'Check your phone',
@@ -406,9 +426,7 @@ class _PaymentFlowSheetState extends ConsumerState<PaymentFlowSheet> {
         AppButton(
           label: 'Check status',
           icon: Icons.refresh_rounded,
-          onPressed: () => ref
-              .read(paymentFlowProvider(widget.delivery.id).notifier)
-              .refreshNow(),
+          onPressed: _onCheckStatusTap,
           variant: AppButtonVariant.secondary,
         ),
         const SizedBox(height: AppSpacing.xs),

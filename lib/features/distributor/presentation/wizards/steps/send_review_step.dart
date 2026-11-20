@@ -5,6 +5,7 @@ import '../../../../../core/errors/failure.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../data/models/delivery.dart';
+import '../../../../../data/models/branch.dart';
 import '../../../../../data/models/delivery_input.dart';
 import '../../../../../shared/providers/repository_providers.dart';
 import '../../../../../widgets/widgets.dart';
@@ -19,6 +20,7 @@ import '../widgets/wizard_bottom_bar.dart';
 class SendReviewStep extends ConsumerStatefulWidget {
   final List<DeliveryItemInput> items;
   final String pickupAddress;
+  final Branch? pickupBranch;
   final double pickupLatitude;
   final double pickupLongitude;
   final String recipientName;
@@ -32,6 +34,7 @@ class SendReviewStep extends ConsumerStatefulWidget {
     super.key,
     required this.items,
     required this.pickupAddress,
+    this.pickupBranch,
     required this.pickupLatitude,
     required this.pickupLongitude,
     required this.recipientName,
@@ -67,8 +70,9 @@ class _SendReviewStepState extends ConsumerState<SendReviewStep> {
     final result = await repo.pricePreview(
       PricePreviewInput(
         serviceType: ServiceType.send,
-        pickupLatitude: widget.pickupLatitude,
-        pickupLongitude: widget.pickupLongitude,
+        pickupBranchId: widget.pickupBranch?.id,
+        pickupLatitude: widget.pickupBranch == null ? widget.pickupLatitude : null,
+        pickupLongitude: widget.pickupBranch == null ? widget.pickupLongitude : null,
         destinationLatitude: widget.destinationLatitude,
         destinationLongitude: widget.destinationLongitude,
         applyReward: false,
@@ -96,9 +100,10 @@ class _SendReviewStepState extends ConsumerState<SendReviewStep> {
       CreateDeliveryInput(
         serviceType: ServiceType.send,
         items: widget.items,
-        pickupAddress: widget.pickupAddress,
-        pickupLatitude: widget.pickupLatitude,
-        pickupLongitude: widget.pickupLongitude,
+        pickupBranchId: widget.pickupBranch?.id,
+        pickupAddress: widget.pickupBranch == null ? widget.pickupAddress : null,
+        pickupLatitude: widget.pickupBranch == null ? widget.pickupLatitude : null,
+        pickupLongitude: widget.pickupBranch == null ? widget.pickupLongitude : null,
         recipientName: widget.recipientName,
         recipientPhone: widget.recipientPhone,
         destinationAddress: widget.destinationAddress,
@@ -141,6 +146,7 @@ class _SendReviewStepState extends ConsumerState<SendReviewStep> {
                   : _ReviewContent(
                       items: widget.items,
                       pickupAddress: widget.pickupAddress,
+                      pickupBranch: widget.pickupBranch,
                       pickupLatitude: widget.pickupLatitude,
                       pickupLongitude: widget.pickupLongitude,
                       recipientName: widget.recipientName,
@@ -165,6 +171,7 @@ class _SendReviewStepState extends ConsumerState<SendReviewStep> {
 class _ReviewContent extends StatelessWidget {
   final List<DeliveryItemInput> items;
   final String pickupAddress;
+  final Branch? pickupBranch;
   final double pickupLatitude;
   final double pickupLongitude;
   final String recipientName;
@@ -177,6 +184,7 @@ class _ReviewContent extends StatelessWidget {
   const _ReviewContent({
     required this.items,
     required this.pickupAddress,
+    required this.pickupBranch,
     required this.pickupLatitude,
     required this.pickupLongitude,
     required this.recipientName,
@@ -194,14 +202,14 @@ class _ReviewContent extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.screenH),
       children: [
         _Surface(
-          title: 'Pickup (your location)',
-          icon: Icons.store_outlined,
+          title: pickupBranch == null ? 'Pickup (your location)' : 'Pickup (ODS branch)',
+          icon: pickupBranch == null ? Icons.my_location : Icons.store_outlined,
           children: [
             Text(
-              pickupAddress,
+              pickupBranch == null ? pickupAddress : '${pickupBranch!.name} · ${pickupBranch!.code}\n${pickupBranch!.address}',
               style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
-            Text(
+            if (pickupBranch == null) Text(
               '${pickupLatitude.toStringAsFixed(5)}, '
               '${pickupLongitude.toStringAsFixed(5)}',
               style: text.bodySmall?.copyWith(

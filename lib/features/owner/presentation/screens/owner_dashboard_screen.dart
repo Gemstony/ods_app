@@ -8,6 +8,7 @@ import 'owner_home_tab.dart';
 import 'owner_users_tab.dart';
 import 'owner_settings_tab.dart';
 import 'owner_finance_tab.dart';
+import 'user_form_screen.dart';
 
 class OwnerDashboardScreen extends StatelessWidget {
   const OwnerDashboardScreen({super.key});
@@ -41,6 +42,7 @@ class OwnerDashboardScreen extends StatelessWidget {
           label: 'Users',
           icon: Icons.people_rounded,
           body: OwnerUsersTab(),
+          floatingActionButton: _AddUserFab(),
         ),
         const RoleDashboardTab(
           label: 'Finance',
@@ -53,6 +55,21 @@ class OwnerDashboardScreen extends StatelessWidget {
           body: OwnerSettingsTab(),
         ),
       ],
+    );
+  }
+}
+
+class _AddUserFab extends StatelessWidget {
+  const _AddUserFab();
+
+  @override
+  Widget build(BuildContext context) {
+    return FloatingActionButton(
+      onPressed: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const UserFormScreen()),
+      ),
+      tooltip: 'Add user',
+      child: const Icon(Icons.add),
     );
   }
 }

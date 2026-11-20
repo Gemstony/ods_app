@@ -7,6 +7,7 @@ import 'manager_staff_tab.dart';
 import 'manager_deliveries_tab.dart';
 import 'manager_packages_tab.dart';
 import 'manager_profile_tab.dart';
+import 'staff_form_screen.dart';
 
 class ManagerDashboardScreen extends StatelessWidget {
   const ManagerDashboardScreen({super.key});
@@ -15,7 +16,7 @@ class ManagerDashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return RoleDashboardScaffold(
       title: 'Manager',
-      tabs: const [
+      tabs: [
         RoleDashboardTab(
           label: 'Home',
           icon: Icons.dashboard_rounded,
@@ -25,6 +26,15 @@ class ManagerDashboardScreen extends StatelessWidget {
           label: 'Staff',
           icon: Icons.badge_rounded,
           body: const ManagerStaffTab(),
+          floatingActionButton: Builder(
+            builder: (fabContext) => FloatingActionButton(
+              onPressed: () => Navigator.of(fabContext).push(
+                MaterialPageRoute(builder: (_) => const StaffFormScreen()),
+              ),
+              tooltip: 'Add staff',
+              child: const Icon(Icons.add),
+            ),
+          ),
         ),
         RoleDashboardTab(
           label: 'Deliveries',

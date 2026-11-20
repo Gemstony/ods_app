@@ -154,7 +154,7 @@ class Payment {
     this.updatedAt,
   });
 
-  factory Payment.fromJson(Map<String, dynamic> json) {
+   factory Payment.fromJson(Map<String, dynamic> json) {
     final rawUssd = json['ussd'];
     return Payment(
       id: asInt(json['id']),
@@ -167,7 +167,11 @@ class Payment {
       status: PaymentStatus.fromString(json['status'] as String),
       reference: json['reference'] as String,
       providerReference: json['provider_reference'] as String?,
-      initiatedBy: asInt(json['initiated_by']),
+      // Defensive: some payloads (e.g. manual payment responses) may
+      // omit `initiated_by`. `asInt(null)` would throw FormatException.
+      initiatedBy: json['initiated_by'] == null
+          ? 0
+          : asInt(json['initiated_by']),
       initiatedAt: parseDate(json['initiated_at']) ?? DateTime.now(),
       paidAt: parseDate(json['paid_at']),
       failedAt: parseDate(json['failed_at']),

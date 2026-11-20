@@ -45,7 +45,11 @@ class ManagerHomeTab extends ConsumerWidget {
         return RefreshIndicator(
           onRefresh: () async {
             ref.invalidate(managerDashboardProvider);
-            await ref.read(managerDashboardProvider.future);
+            ref.invalidate(managerPendingManualPaymentsProvider);
+            await Future.wait([
+              ref.read(managerDashboardProvider.future),
+              ref.read(managerPendingManualPaymentsProvider.future),
+            ]);
           },
           child: _DashboardContent(kpis: kpis),
         );
@@ -509,12 +513,27 @@ String _formatTsh(double amount) {
 
 String _formatDate(DateTime dt) {
   const weekdays = [
-    'Monday', 'Tuesday', 'Wednesday', 'Thursday',
-    'Friday', 'Saturday', 'Sunday',
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
   ];
   const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
   return '${weekdays[dt.weekday - 1]}, ${dt.day} ${months[dt.month - 1]} ${dt.year}';
 }
