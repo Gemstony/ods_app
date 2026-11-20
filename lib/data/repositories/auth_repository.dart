@@ -107,6 +107,60 @@ class AuthRepository {
     });
   }
 
+  // ─── Update profile ─────────────────────────────────────────
+  /// PUT /auth/profile
+  ///
+  /// Updates the signed-in user's name and phone (any role). Email is
+  /// immutable server-side. Returns the refreshed [AuthUser] so the
+  /// caller can update the session state.
+  ///
+  /// On failure:
+  ///   - 422 → `Failure.validation` with `fieldErrors` (duplicate phone,
+  ///           invalid format)
+  Future<ApiResult<AuthUser>> updateProfile({
+    required String name,
+    required String phone,
+  }) {
+    return ApiResult.guard(() async {
+      // The backend phone regex rejects spaces/dashes — normalize the
+      // same way Validators.phone() does before submitting.
+      final normalizedPhone = phone.replaceAll(RegExp(r'[\s\-]'), '');
+      final response = await _dio.put<Map<String, dynamic>>(
+        ApiEndpoints.updateProfile,
+        data: {'name': name, 'phone': normalizedPhone},
+      );
+
+      final data = _extractData(response);
+      return AuthUser.fromJson(data);
+    });
+  }
+
+  // ─── Change password ────────────────────────────────────────
+  /// PUT /auth/password
+  ///
+  /// Changes the signed-in user's password after verifying the current
+  /// one. The session stays valid — no token handling needed here.
+  ///
+  /// On failure:
+  ///   - 422 → `Failure.validation` with `fieldErrors` (wrong current
+  ///           password, mismatched confirmation, too short)
+  Future<ApiResult<void>> changePassword({
+    required String currentPassword,
+    required String password,
+    required String passwordConfirmation,
+  }) {
+    return ApiResult.guard(() async {
+      await _dio.put<Map<String, dynamic>>(
+        ApiEndpoints.changePassword,
+        data: {
+          'current_password': currentPassword,
+          'password': password,
+          'password_confirmation': passwordConfirmation,
+        },
+      );
+    });
+  }
+
   // ─── Envelope extraction ──────────────────────────────────
   /// Validates the standard `{success, message, data}` envelope from the
   /// backend and returns `data`. Throws a descriptive `AppException` if

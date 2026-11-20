@@ -6,6 +6,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../data/models/branch.dart';
 import '../../../../shared/providers/auth_provider.dart';
 import '../../../../widgets/widgets.dart';
+import '../../../shared/presentation/widgets/profile_actions_card.dart';
 import '../providers/manager_branch_providers.dart';
 import 'manager_branch_form_screen.dart';
 
@@ -69,6 +70,8 @@ class _Content extends ConsumerWidget {
         ],
         const SizedBox(height: AppSpacing.lg),
         _EditButton(branch: branch),
+        const SizedBox(height: AppSpacing.lg),
+        const ProfileActionsCard(),
         const SizedBox(height: AppSpacing.xl),
       ],
     );
@@ -206,9 +209,7 @@ class _BranchInfoCard extends StatelessWidget {
 
   static String _formatHours(Map<String, dynamic>? hours) {
     if (hours == null || hours.isEmpty) return 'Not set';
-    final activeDays = hours.entries
-        .where((e) => e.value != null)
-        .length;
+    final activeDays = hours.entries.where((e) => e.value != null).length;
     if (activeDays == 0) return 'Not set';
     return '$activeDays day${activeDays == 1 ? '' : 's'} configured';
   }
@@ -278,8 +279,18 @@ class _ManagerCard extends StatelessWidget {
 
   String _formatDate(DateTime dt) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
   }

@@ -6,6 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../data/models/auth/auth_user.dart';
 import '../../../../shared/providers/auth_provider.dart';
+import '../../../shared/presentation/widgets/profile_actions_card.dart';
 import '../../../../widgets/widgets.dart';
 
 /// The Receiver's Profile tab.
@@ -50,6 +51,8 @@ class ReceiverProfileTab extends ConsumerWidget {
           _ContactCard(user: user),
           const SizedBox(height: AppSpacing.lg),
           _AccountCard(user: user),
+          const SizedBox(height: AppSpacing.lg),
+          const ProfileActionsCard(),
           const SizedBox(height: AppSpacing.xl),
           const _VersionFooter(),
           const SizedBox(height: AppSpacing.xl),
@@ -252,8 +255,18 @@ class _AccountCard extends StatelessWidget {
 
   static String _formatDate(DateTime dt) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
   }
@@ -375,4 +388,4 @@ Widget _kv(
       ],
     ),
   );
-  }
+}

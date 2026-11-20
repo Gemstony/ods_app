@@ -19,6 +19,8 @@ class ApiEndpoints {
   static const String logoutAll = '/auth/logout-all';
   static const String refresh = '/auth/refresh';
   static const String me = '/auth/me';
+  static const String updateProfile = '/auth/profile';
+  static const String changePassword = '/auth/password';
   static const String registerDistributor = '/auth/register/distributor';
 
   // ─── Owner — core (Phase 5) ──────────────────────────────────────
@@ -36,8 +38,7 @@ class ApiEndpoints {
   static const String ownerEarnings = '/owner/earnings';
   static const String ownerPayouts = '/owner/payouts';
   static const String ownerLedgerReconcile = '/owner/ledger/reconcile';
-  static const String ownerLedgerReconcileLast =
-      '/owner/ledger/reconcile/last';
+  static const String ownerLedgerReconcileLast = '/owner/ledger/reconcile/last';
 
   // ─── Manager (Phase 6) ───────────────────────────────────────────
   static const String managerStaff = '/manager/staff';

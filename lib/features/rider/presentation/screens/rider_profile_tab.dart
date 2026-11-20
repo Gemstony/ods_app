@@ -6,6 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../data/models/auth/auth_user.dart';
 import '../../../../shared/providers/auth_provider.dart';
+import '../../../shared/presentation/widgets/profile_actions_card.dart';
 import '../../../../widgets/widgets.dart';
 
 /// The Rider's Profile tab.
@@ -19,8 +20,8 @@ import '../../../../widgets/widgets.dart';
 ///   - Footer:    app name + version
 ///
 /// Logout lives in the AppBar (via RoleDashboardScaffold's LogoutMenu).
-/// Editing rider details requires a `PUT /rider/profile` endpoint that
-/// doesn't exist yet — intentionally not surfaced here.
+/// [ProfileActionsCard] opens the shared edit-profile and
+/// change-password screens (`PUT /auth/profile`, `PUT /auth/password`).
 class RiderProfileTab extends ConsumerWidget {
   const RiderProfileTab({super.key});
 
@@ -62,6 +63,8 @@ class RiderProfileTab extends ConsumerWidget {
           ],
           const SizedBox(height: AppSpacing.lg),
           _AccountCard(user: user),
+          const SizedBox(height: AppSpacing.lg),
+          const ProfileActionsCard(),
           const SizedBox(height: AppSpacing.xl),
           const _VersionFooter(),
           const SizedBox(height: AppSpacing.xl),
@@ -278,10 +281,8 @@ class _VehicleCard extends StatelessWidget {
         title: 'Vehicle',
       ),
       const SizedBox(height: AppSpacing.sm),
-      if (user.vehicleType != null)
-        _kv(context, 'Type', user.vehicleType!),
-      if (user.vehicleColor != null)
-        _kv(context, 'Color', user.vehicleColor!),
+      if (user.vehicleType != null) _kv(context, 'Type', user.vehicleType!),
+      if (user.vehicleColor != null) _kv(context, 'Color', user.vehicleColor!),
       if (user.vehicleOwnership != null)
         _kv(context, 'Ownership', _ownershipLabel(user.vehicleOwnership!)),
       if (user.plateNumber != null)
@@ -460,8 +461,18 @@ Widget _kv(
 
 String _formatDate(DateTime dt) {
   const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
   return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
 }

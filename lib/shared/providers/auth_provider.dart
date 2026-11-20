@@ -111,7 +111,7 @@ class SessionNotifier extends StateNotifier<AsyncValue<Session?>> {
     }
   }
 
-    /// Signs out — revokes the current refresh token (or every session on
+  /// Signs out — revokes the current refresh token (or every session on
   /// every device when [allDevices] is true) and clears all local state.
   ///
   /// The server call is **best-effort**:
@@ -143,6 +143,14 @@ class SessionNotifier extends StateNotifier<AsyncValue<Session?>> {
     }
     await _tokenService.clearTokens();
     state = const AsyncValue.data(null);
+  }
+
+  /// Called after a successful `PUT /auth/profile` — swaps the user in
+  /// the current session while keeping the existing tokens.
+  void updateUser(AuthUser user) {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    state = AsyncValue.data(Session(user: user, tokens: current.tokens));
   }
 
   /// Called by the login screen on a successful `/auth/login`.
