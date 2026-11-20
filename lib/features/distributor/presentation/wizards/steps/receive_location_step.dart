@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
+import '../../../../../widgets/dar_es_salaam_map_picker.dart';
 import '../../../../../widgets/widgets.dart';
 import '../widgets/wizard_bottom_bar.dart';
 
 /// Step 3: enter the distributor's current location.
 ///
-/// The distributor enters their address + GPS coordinates. This is the
-/// delivery destination for a Receive delivery. (GPS auto-detection via
-/// `geolocator` is a Phase 14 polish; manual entry works everywhere.)
+/// The distributor enters their address + map location. This is the
+/// delivery destination for a Receive delivery.
 class ReceiveLocationStep extends StatefulWidget {
   final void Function({
     required String address,
@@ -34,6 +35,13 @@ class _ReceiveLocationStepState extends State<ReceiveLocationStep> {
   final _latController = TextEditingController();
   final _lngController = TextEditingController();
   AutovalidateMode _autoValidate = AutovalidateMode.disabled;
+
+  LatLng? get _initialMapPosition {
+    final latitude = double.tryParse(_latController.text);
+    final longitude = double.tryParse(_lngController.text);
+    if (latitude == null || longitude == null || (latitude == 0 && longitude == 0)) return null;
+    return LatLng(latitude, longitude);
+  }
 
   @override
   void dispose() {
@@ -96,51 +104,13 @@ class _ReceiveLocationStepState extends State<ReceiveLocationStep> {
                   },
                 ),
                 const SizedBox(height: AppSpacing.lg),
-                Text(
-                  'GPS coordinates',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-                const SizedBox(height: AppSpacing.xxs),
-                Text(
-                  'Find your GPS coordinates in a maps app (e.g., Google '
-                  'Maps → long-press → copy coordinates).',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.onSurfaceMuted,
-                      ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Row(
-                  children: [
-                    Expanded(
-                      child: AppTextField(
-                        controller: _latController,
-                        label: 'Latitude',
-                        hint: '-6.7924',
-                        keyboardType: const TextInputType.numberWithOptions(
-                          signed: true,
-                          decimal: true,
-                        ),
-                        prefixIcon: Icons.my_location_outlined,
-                        validator: _validateLatitude,
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: AppTextField(
-                        controller: _lngController,
-                        label: 'Longitude',
-                        hint: '39.2083',
-                        keyboardType: const TextInputType.numberWithOptions(
-                          signed: true,
-                          decimal: true,
-                        ),
-                        prefixIcon: Icons.explore_outlined,
-                        validator: _validateLongitude,
-                      ),
-                    ),
-                  ],
+                DarEsSalaamMapPicker(
+                  initialPosition: _initialMapPosition,
+                  enabled: true,
+                  onChanged: (point) {
+                    _latController.text = point.latitude.toString();
+                    _lngController.text = point.longitude.toString();
+                  },
                 ),
               ],
             ),
@@ -153,19 +123,5 @@ class _ReceiveLocationStepState extends State<ReceiveLocationStep> {
         ],
       ),
     );
-  }
-
-  String? _validateLatitude(String? v) {
-    final d = double.tryParse(v?.trim() ?? '');
-    if (d == null) return 'Required.';
-    if (d < -90 || d > 90) return 'Between -90 and 90.';
-    return null;
-  }
-
-  String? _validateLongitude(String? v) {
-    final d = double.tryParse(v?.trim() ?? '');
-    if (d == null) return 'Required.';
-    if (d < -180 || d > 180) return 'Between -180 and 180.';
-    return null;
   }
 }

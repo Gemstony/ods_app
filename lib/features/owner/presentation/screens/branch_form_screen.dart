@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:ods_app/features/owner/presentation/providers/owner_branch_providers.dart';
 
 import '../../../../core/errors/failure.dart';
@@ -9,8 +10,8 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../data/models/branch.dart';
 import '../../../../data/models/branch_input.dart';
 import '../../../../shared/providers/repository_providers.dart';
+import '../../../../widgets/dar_es_salaam_map_picker.dart';
 import '../../../../widgets/widgets.dart';
-
 
 /// Full-screen create / edit form for a branch.
 ///
@@ -56,6 +57,13 @@ class _BranchFormScreenState extends ConsumerState<BranchFormScreen> {
     _lngController =
         TextEditingController(text: b?.longitude.toString() ?? '');
     _status = b?.status ?? BranchStatus.active;
+  }
+
+  LatLng? get _initialMapPosition {
+    final latitude = double.tryParse(_latController.text);
+    final longitude = double.tryParse(_lngController.text);
+    if (latitude == null || longitude == null || (latitude == 0 && longitude == 0)) return null;
+    return LatLng(latitude, longitude);
   }
 
   @override
@@ -188,42 +196,14 @@ class _BranchFormScreenState extends ConsumerState<BranchFormScreen> {
                     _required(v, 'Address'),
               ),
               const SizedBox(height: AppSpacing.sm),
-              Row(
-                children: [
-                  Expanded(
-                    child: AppTextField(
-                      controller: _latController,
-                      label: 'Latitude',
-                      hint: '-6.7924',
-                      prefixIcon: Icons.my_location_outlined,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        signed: true,
-                        decimal: true,
-                      ),
-                      enabled: !_submitting,
-                      validator: (v) =>
-                          _serverErrors['latitude'] ??
-                          _validateLat(v),
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: AppTextField(
-                      controller: _lngController,
-                      label: 'Longitude',
-                      hint: '39.2083',
-                      prefixIcon: Icons.explore_outlined,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        signed: true,
-                        decimal: true,
-                      ),
-                      enabled: !_submitting,
-                      validator: (v) =>
-                          _serverErrors['longitude'] ??
-                          _validateLng(v),
-                    ),
-                  ),
-                ],
+              DarEsSalaamMapPicker(
+                initialPosition: _initialMapPosition,
+                errorText: _serverErrors['latitude'] ?? _serverErrors['longitude'],
+                enabled: !_submitting,
+                onChanged: (point) {
+                  _latController.text = point.latitude.toString();
+                  _lngController.text = point.longitude.toString();
+                },
               ),
               const SizedBox(height: AppSpacing.sm),
               DropdownButtonFormField<BranchStatus>(

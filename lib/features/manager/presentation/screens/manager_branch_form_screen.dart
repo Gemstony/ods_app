@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../../core/errors/failure.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -8,6 +9,7 @@ import '../../../../data/models/branch.dart';
 import '../../../../shared/providers/branch_providers.dart';
 import '../../../../shared/providers/dashboard_providers.dart';
 import '../../../../shared/providers/repository_providers.dart';
+import '../../../../widgets/dar_es_salaam_map_picker.dart';
 import '../../../../widgets/widgets.dart';
 import '../providers/manager_branch_providers.dart';
 import '../providers/manager_dashboard_providers.dart';
@@ -48,6 +50,13 @@ class _ManagerBranchFormScreenState
     _addressController = TextEditingController(text: b.address);
     _latController = TextEditingController(text: b.latitude.toString());
     _lngController = TextEditingController(text: b.longitude.toString());
+  }
+
+  LatLng? get _initialMapPosition {
+    final latitude = double.tryParse(_latController.text);
+    final longitude = double.tryParse(_lngController.text);
+    if (latitude == null || longitude == null || (latitude == 0 && longitude == 0)) return null;
+    return LatLng(latitude, longitude);
   }
 
   @override
@@ -173,40 +182,14 @@ class _ManagerBranchFormScreenState
                     _serverErrors['address'] ?? _required(v, 'Address'),
               ),
               const SizedBox(height: AppSpacing.sm),
-              Row(
-                children: [
-                  Expanded(
-                    child: AppTextField(
-                      controller: _latController,
-                      label: 'Latitude',
-                      hint: '-6.7924',
-                      keyboardType: const TextInputType.numberWithOptions(
-                        signed: true,
-                        decimal: true,
-                      ),
-                      prefixIcon: Icons.my_location_outlined,
-                      enabled: !_submitting,
-                      validator: (v) =>
-                          _serverErrors['latitude'] ?? _validateLat(v),
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: AppTextField(
-                      controller: _lngController,
-                      label: 'Longitude',
-                      hint: '39.2083',
-                      keyboardType: const TextInputType.numberWithOptions(
-                        signed: true,
-                        decimal: true,
-                      ),
-                      prefixIcon: Icons.explore_outlined,
-                      enabled: !_submitting,
-                      validator: (v) =>
-                          _serverErrors['longitude'] ?? _validateLng(v),
-                    ),
-                  ),
-                ],
+              DarEsSalaamMapPicker(
+                initialPosition: _initialMapPosition,
+                errorText: _serverErrors['latitude'] ?? _serverErrors['longitude'],
+                enabled: !_submitting,
+                onChanged: (point) {
+                  _latController.text = point.latitude.toString();
+                  _lngController.text = point.longitude.toString();
+                },
               ),
               const SizedBox(height: AppSpacing.lg),
               AppButton(

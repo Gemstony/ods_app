@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../core/utils/validators.dart';
+import '../../../../../widgets/dar_es_salaam_map_picker.dart';
 import '../../../../../widgets/widgets.dart';
 import '../widgets/wizard_bottom_bar.dart';
 
@@ -38,6 +40,13 @@ class _SendRecipientStepState extends State<SendRecipientStep> {
   final _latController = TextEditingController();
   final _lngController = TextEditingController();
   AutovalidateMode _autoValidate = AutovalidateMode.disabled;
+
+  LatLng? get _initialMapPosition {
+    final latitude = double.tryParse(_latController.text);
+    final longitude = double.tryParse(_lngController.text);
+    if (latitude == null || longitude == null || (latitude == 0 && longitude == 0)) return null;
+    return LatLng(latitude, longitude);
+  }
 
   @override
   void dispose() {
@@ -135,36 +144,13 @@ class _SendRecipientStepState extends State<SendRecipientStep> {
                   },
                 ),
                 const SizedBox(height: AppSpacing.sm),
-                Row(
-                  children: [
-                    Expanded(
-                      child: AppTextField(
-                        controller: _latController,
-                        label: 'Latitude',
-                        hint: '-6.7924',
-                        keyboardType: const TextInputType.numberWithOptions(
-                          signed: true,
-                          decimal: true,
-                        ),
-                        prefixIcon: Icons.my_location_outlined,
-                        validator: _validateLatitude,
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: AppTextField(
-                        controller: _lngController,
-                        label: 'Longitude',
-                        hint: '39.2083',
-                        keyboardType: const TextInputType.numberWithOptions(
-                          signed: true,
-                          decimal: true,
-                        ),
-                        prefixIcon: Icons.explore_outlined,
-                        validator: _validateLongitude,
-                      ),
-                    ),
-                  ],
+                DarEsSalaamMapPicker(
+                  initialPosition: _initialMapPosition,
+                  enabled: true,
+                  onChanged: (point) {
+                    _latController.text = point.latitude.toString();
+                    _lngController.text = point.longitude.toString();
+                  },
                 ),
               ],
             ),
@@ -177,19 +163,5 @@ class _SendRecipientStepState extends State<SendRecipientStep> {
         ],
       ),
     );
-  }
-
-  String? _validateLatitude(String? v) {
-    final d = double.tryParse(v?.trim() ?? '');
-    if (d == null) return 'Required.';
-    if (d < -90 || d > 90) return 'Between -90 and 90.';
-    return null;
-  }
-
-  String? _validateLongitude(String? v) {
-    final d = double.tryParse(v?.trim() ?? '');
-    if (d == null) return 'Required.';
-    if (d < -180 || d > 180) return 'Between -180 and 180.';
-    return null;
   }
 }
