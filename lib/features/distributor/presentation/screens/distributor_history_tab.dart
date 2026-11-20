@@ -151,6 +151,7 @@ class _DistributorHistoryTabState
         },
       ),
     ));
+    ref.invalidate(distributorHistoryProvider);
   }
 }
 

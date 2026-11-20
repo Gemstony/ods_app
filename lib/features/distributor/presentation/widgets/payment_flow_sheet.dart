@@ -18,15 +18,27 @@ import '../providers/payment_flow_providers.dart';
 /// Manager approves.
 class PaymentFlowSheet extends ConsumerStatefulWidget {
   final Delivery delivery;
+  final VoidCallback? onManualPaymentPending;
 
-  const PaymentFlowSheet({super.key, required this.delivery});
+  const PaymentFlowSheet({
+    super.key,
+    required this.delivery,
+    this.onManualPaymentPending,
+  });
 
-  static Future<bool?> show(BuildContext context, Delivery delivery) {
+  static Future<bool?> show(
+    BuildContext context,
+    Delivery delivery, {
+    VoidCallback? onManualPaymentPending,
+  }) {
     return showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => PaymentFlowSheet(delivery: delivery),
+      builder: (_) => PaymentFlowSheet(
+        delivery: delivery,
+        onManualPaymentPending: onManualPaymentPending,
+      ),
     );
   }
 
@@ -67,6 +79,10 @@ class _PaymentFlowSheetState extends ConsumerState<PaymentFlowSheet> {
     ref.listen<PaymentFlowState>(
       paymentFlowProvider(widget.delivery.id),
       (prev, next) {
+        if (prev is! PaymentFlowAwaitingApproval &&
+            next is PaymentFlowAwaitingApproval) {
+          widget.onManualPaymentPending?.call();
+        }
         if (next is PaymentFlowSuccess && _preFilled == false) {
           _preFilled = true;
           Future.delayed(const Duration(milliseconds: 900), () {

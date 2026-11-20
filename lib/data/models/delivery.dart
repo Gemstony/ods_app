@@ -149,6 +149,7 @@ class Delivery {
   /// relation — Regional list / dispatch responses. Null everywhere else
   /// (Phase 9.3+).
   final DispatcherTicket? dispatcherTicket;
+  final bool manualPaymentPending;
 
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -204,6 +205,7 @@ class Delivery {
     this.hoursAtBranch,
     this.items,
     this.dispatcherTicket,
+    this.manualPaymentPending = false,
     this.createdAt,
     this.updatedAt,
     this.deletedAt,
@@ -293,6 +295,7 @@ class Delivery {
       dispatcherTicket: rawTicket is Map && rawTicket.isNotEmpty
           ? DispatcherTicket.fromJson(Map<String, dynamic>.from(rawTicket))
           : null,
+      manualPaymentPending: json['manual_payment_pending'] == true,
       createdAt: parseDate(json['created_at']),
       updatedAt: parseDate(json['updated_at']),
       deletedAt: parseDate(json['deleted_at']),
@@ -348,6 +351,7 @@ class Delivery {
         'hours_at_branch': hoursAtBranch,
         'items': items?.map((i) => i.toJson()).toList(),
         'dispatcher_ticket': dispatcherTicket?.toJson(),
+        'manual_payment_pending': manualPaymentPending,
         'created_at': createdAt?.toIso8601String(),
         'updated_at': updatedAt?.toIso8601String(),
         'deleted_at': deletedAt?.toIso8601String(),

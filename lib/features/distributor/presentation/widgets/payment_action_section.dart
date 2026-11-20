@@ -13,11 +13,13 @@ import 'payment_flow_sheet.dart';
 class PaymentActionSection extends StatelessWidget {
   final Delivery delivery;
   final VoidCallback onRefresh;
+  final VoidCallback? onManualPaymentPending;
 
   const PaymentActionSection({
     super.key,
     required this.delivery,
     required this.onRefresh,
+    this.onManualPaymentPending,
   });
 
   @override
@@ -62,7 +64,11 @@ class PaymentActionSection extends StatelessWidget {
             icon: Icons.payment_rounded,
             onPressed: () async {
               final success =
-                  await PaymentFlowSheet.show(context, delivery);
+                  await PaymentFlowSheet.show(
+                    context,
+                    delivery,
+                    onManualPaymentPending: onManualPaymentPending,
+                  );
               if (success == true) onRefresh();
             },
           ),

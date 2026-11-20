@@ -40,6 +40,7 @@ class DeliveryDetailScreen extends StatefulWidget {
 class _DeliveryDetailScreenState extends State<DeliveryDetailScreen> {
   late Delivery _delivery;
   bool _refreshing = false;
+  bool _manualPaymentPending = false;
 
   @override
   void initState() {
@@ -80,7 +81,11 @@ class _DeliveryDetailScreenState extends State<DeliveryDetailScreen> {
           padding: const EdgeInsets.all(AppSpacing.screenH),
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
-            _HeaderCard(delivery: d),
+            _HeaderCard(
+              delivery: d,
+              manualPaymentPending:
+                  _manualPaymentPending || d.manualPaymentPending,
+            ),
             const SizedBox(height: AppSpacing.lg),
             _TimelineSection(delivery: d),
             const SizedBox(height: AppSpacing.lg),
@@ -101,6 +106,9 @@ class _DeliveryDetailScreenState extends State<DeliveryDetailScreen> {
               PaymentActionSection(
                 delivery: d,
                 onRefresh: _refresh,
+                onManualPaymentPending: () {
+                  if (mounted) setState(() => _manualPaymentPending = true);
+                },
               ),
             ],
             if (widget.showDistributorVerification &&
@@ -188,7 +196,11 @@ class _VerificationCodesSection extends StatelessWidget {
 
 class _HeaderCard extends StatelessWidget {
   final Delivery delivery;
-  const _HeaderCard({required this.delivery});
+  final bool manualPaymentPending;
+  const _HeaderCard({
+    required this.delivery,
+    required this.manualPaymentPending,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -210,6 +222,29 @@ class _HeaderCard extends StatelessWidget {
               DeliveryStatusChip(status: delivery.status),
             ],
           ),
+          if (manualPaymentPending) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm,
+                vertical: AppSpacing.xs,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.warningSurface,
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                border: Border.all(color: AppColors.warning.withValues(alpha: 0.35)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.hourglass_top_rounded,
+                      size: 16, color: AppColors.warning),
+                  SizedBox(width: AppSpacing.xs),
+                  Text('Manual payment pending approval'),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: AppSpacing.sm),
           Text(
             delivery.trackingId,

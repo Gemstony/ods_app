@@ -77,6 +77,31 @@ class DeliveryCard extends StatelessWidget {
                   DeliveryStatusChip(status: delivery.status),
                 ],
               ),
+              if (delivery.manualPaymentPending) ...[
+                const SizedBox(height: AppSpacing.xs),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.sm,
+                    vertical: AppSpacing.xs,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.warningSurface,
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                    border: Border.all(
+                      color: AppColors.warning.withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.hourglass_top_rounded,
+                          size: 15, color: AppColors.warning),
+                      SizedBox(width: AppSpacing.xs),
+                      Text('Manual payment pending approval'),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: AppSpacing.xs),
 
               // ─── Tracking ID ─────────────────────────────────
